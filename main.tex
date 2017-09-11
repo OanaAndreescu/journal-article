@@ -80,6 +80,17 @@ decorations.markings,patterns,matrix,decorations.pathmorphing,mindmap,math,trian
 
 \newcommand{\snumber}[1]{\textrm{{\scriptsize(#1)}}}
 
+
+%%%%% From Ch. 1
+\def\slang{\textsf{Smart}}
+\def\smil{\textsf{Smil}}
+\def\prun{\textsf{Prove \& Run}}
+\def\ptools{\textsf{ProvenTools}}
+\def\pcore{\textsf{ProvenCore}}
+\def\pcorem{\textsf{ProvenCore-M}}
+\def\pvisor{\textsf{ProvenVisor}}
+
+
 %%%%%
 %%%%% From Chapter on SSMART
 \newcommand{\disp}[1]{\lstinline&#1&}
@@ -325,6 +336,38 @@ decorations.markings,patterns,matrix,decorations.pathmorphing,mindmap,math,trian
 }
 
 
+\def\inpset{\mathcal{I}}
+
+%%% From Chapter 9 ``Evaluation''
+\tikzset{
+>=stealth',
+  punktchain/.style={
+    rectangle, 
+    rounded corners, 
+    % fill=black!10,
+   % draw=black, 
+   % very thick,
+    text width=10em, 
+    minimum height=3em, 
+    text centered, 
+    on chain},
+  line/.style={draw, thick, <-},
+  element/.style={
+    tape,
+    top color=white,
+    bottom color=blue!50!black!60!,
+    minimum width=8em,
+    draw=blue!40!black!90, very thick,
+    text width=10em, 
+    minimum height=3.5em, 
+    text centered, 
+    on chain},
+  every join/.style={<-, thick,shorten >=1pt},
+%  decoration={brace},
+  tuborg/.style={decorate},
+  tubnode/.style={midway, right=2pt},
+}
+\definecolor{caribbeangreen}{rgb}{0.0, 0.8, 0.6}
 
 
 
@@ -2472,13 +2515,2734 @@ answer effectively, when combined with dependency summaries, queries
 regarding the preservation of certain invariants. 
 
 
-\subsection{Introductory example}
-
 \subsection{Correlations as partial equivalence relations}
+
+The first step towards automatically reasoning about the propagation of input
+subelements into output subelements is the definition of an abstract 
+\emph{partial equivalence type} $\rdom$ that mimics the structure of algebraic 
+data types and arrays. A partial equivalence relation $\rel \in \rdom$ is defined 
+inductively from the two atomic elements, {\equal} and \qmark, and mirrors the 
+structure of the concrete types. 
+
+\begin{definition}\label{corpertyppe}
+{Partial Equivalence Type $\rel \in \rdom$.}
+\[
+\begin{array}{lllr}
+ \rel :=  &\ver \equal                &\; \textrm{atomic case -- equal} &\snumber{i}\\
+          &\ver \qmark                &\; \textrm{atomic case -- unrelated} & \snumber{ii}\\
+          & \mathit{\ver \rels}
+          & \; \mathit{f_1, \ldots, f_n}  \textrm{  fields} & \snumber{iii}\\
+          & \ver \mathit{\relv} 
+          & \; C_1, \ldots, C_n  \textrm{  constructors} & \snumber{iv}\\
+          & \mathit{\ver \arel{\rel_{def}}} &\textrm{  array} & \textrm{\scriptsize(v)} \\
+          & \mathit{\ver \relai} 
+          & \; \mathit{i} \; \textrm{array index} & \textrm{\scriptsize(vi)} 
+\end{array} 
+\]
+\end{definition}
+
+\noindent Such relations represent fine-grained partial equivalences between
+pairs of values of the same type. {\equal} and {\qmark} represent equal and
+unrelated values, respectively. Partial equivalence relations for structures
+(given by (iii)) and for variants (given by (iv)), are expressed in terms of the
+partial equivalences of their subparts, by mapping each field or constructor to
+the corresponding relations. As for the dependency analysis presented in
+Chapter~\ref{chapter5}, for arrays, we distinguish between two cases, namely
+arrays with a general relation applying to all of the cells (as given by (v)) or
+to all but one exceptional cell (as given by (vi)), for which a specific
+relation is known to hold.
+
+The preorder relation of the partial equivalence lattice is denoted by 
+$\rleq$ and defined below.
+\begin{definition}{Preorder Relation $\rleq$.}\label{ch7:preorderper:definition}
+\[
+  {\rleq}  \subseteq \rdom \times \rdom.
+\]
+\end{definition}
+\noindent It is detailed in Table~\ref{rleq}.
+
+\begin{table}[hbtp]
+\centering
+\caption{$\rleq$ -- Comparison of Two Domains}
+\label{rleq}
+\begin{tabular}{@{}c@{}}
+\toprule \\
+
+$\inferrule*[right=Top]
+{\phantom{a}}
+{\rel \rleq \qmark}
+
+\;\;\;\;
+
+\inferrule*[right=Bot]
+{\phantom{a}}
+{\equal \rleq \rel}
+$
+\\\\
+
+$\inferrule*[right=Str]
+{\rel_1 \rleq \rel'_1 \\ \ldots \\ \rel_n \rleq \rel'_n}
+{\rels \rleq \srelv{f}{n}{\rel'}}
+$
+\\\\
+
+$\inferrule*[right=Var]
+{\rel_1 \rleq \rel'_1 \\ \ldots \\ \rel_n \rleq \rel'_n}
+{\relv \rleq \vrelv{C}{n}{\rel'}}
+$
+\\\\
+
+$\inferrule*[right=Adef]
+{\rel \rleq \rel'}
+{\rela \rleq \arel{\rel'}}
+
+\;\;\;\;
+
+\inferrule*[right=AI]
+{\rel_{\mathit{def}} \rleq \rel'_{\mathit{def}} \\ \rel_{\mathit{exc}} \rleq \rel'_{\mathit{exc}}}
+{\relai \rleq \aerel{\rel'_{\mathit{def}}}{i}{\rel'_{\mathit{exc}}}}
+$
+\\\\
+
+$\inferrule*[right=AIA]
+{\rel_{\mathit{def}} \rleq \rel' \\ \rel_{\mathit{exc}} \rleq \rel'}
+{\relai \rleq \arel{\rel'}}
+
+\;\;\;\;
+
+\inferrule*[right=AAI]
+{\rel \rleq \rel'_{\mathit{def}} \\ \rel \rleq \rel'_{\mathit{exc}}}
+{\rela \rleq \aerel{\rel'_{\mathit{def}}}{i}{\rel'_{\mathit{exc}}}}
+$
+\\\\
+
+$\inferrule*[right=AIJ]
+{i \neq j \\ \rel_{\mathit{def}} \rleq \rel'_{\mathit{def}} \\ \rel_{\mathit{def}} \rleq \rel'_{\mathit{exc}} \\ \rel_{\mathit{exc}} \rleq \rel'_{\mathit{def}} \\ \rel_{\mathit{exc}} \rleq \rel'_{\mathit{exc}}}
+{\relai \rleq \aerel{\rel'_{\mathit{def}}}{j}{\rel'_{\mathit{exc}}}}
+$ 
+\\\\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The \emph{join} and \emph{meet} operations are denoted by $\rjoin$ and $\rmeet$,
+respectively.
+\begin{definition}{Join Operation $\rjoin$.}\label{ch7:joinoperationper:definition}
+\[
+ \rjoin\;  : \;\rdom\; \times \;\rdom\; \to \;\rdom. %\;\;\;\;\;\;  
+% \rmeet  : \rdom \; \times \rdom \; \to \rdom 
+\]
+\end{definition}
+
+\begin{definition}{Meet Operation $\rmeet$.}\label{ch7:meetoperationper:definition}
+\[
+\rmeet\;  : \;\rdom \; \times \;\rdom \; \to \;\rdom. 
+\]
+\end{definition}
+
+\noindent Both are \emph{commutative} 
+operations, applied pointwise on each subelement. \emph{Join}, shown in 
+Table~\ref{per:join}, has $\equal$ as its identity element and $\qmark$ as its 
+absorbing element. \emph{Meet}, shown in Table~\ref{per:meet}, has $\equal$ as 
+its absorbing element and $\qmark$ as its identity element. For both operations 
+the undisplayed cases are defined by their symmetrical counterparts.
+
+\begin{table*}[hbtp]\centering
+\caption{Partial Equivalences -- $\rjoin$ -- Join Operation}
+\label{per:join}
+\ra{1.2}
+\resizebox{0.99\linewidth}{!}{%
+\begin{tabular}{@{}rllll@{}}
+\toprule
+$\rel'$ & &$\rel''$ & &$\rel' \rjoin \rel''$\\
+\midrule
+$\qmark$ & $\rjoin$  & $\rel$ & = &$ \qmark$ \\ 
+
+\rowcol $\equal$ & $\rjoin$  & $\rel$ & = & $\rel$ \\
+
+$\rels$ &$\rjoin$ &$\srelv{f}{n}{\rel'}$ &= &$\sreljoin{f}{n}$\\
+
+\rowcol $\relv$ &$\rjoin$ &$\vrelv{C}{n}{\rel'}$ &= &$\vreljoin{C}{n}$\\
+
+$\rela$ &$\rjoin$ &$\arel{\rel'}$ &= &$\arel{\rel \rjoin \rel'}$\\
+
+\rowcol $\rela$ &$\rjoin$ &$\aerelnoleftright{\rel'_{\mathit{def}}}{i}{\rel'_{\mathit{exc}}}$ &= &$\aerelnoleftright{\rel \rjoin\rel'_{\mathit{def}}}{i}{\rel \rjoin\rel'_{\mathit{exc}}}$\\
+
+$\relai$ &$\rjoin$ &$\aerelnoleftright{\rel'_{\mathit{def}}}{j}{\rel'_{\mathit{exc}}}\begin{cases}i = j\\i \neq j\end{cases}\hspace{-1cm}$& =
+& $\begin{array}{l}
+  \aerelnoleftright{\rel_{\mathit{def}} \rjoin \rel'_{\mathit{def}}}{i}{\rel_{\mathit{exc}} \rjoin \rel'_{\mathit{exc}}} \\
+  \arel{\rel_{\mathit{def}} \rjoin \rel'_{\mathit{def}} \rjoin \rel_{\mathit{exc}} \rjoin \rel'_{\mathit{exc}}} \\
+  \end{array}$ \\
+\bottomrule
+\end{tabular}
+}
+\end{table*}
+
+\begin{table*}[hbtp]\centering
+\caption{Partial Equivalences -- $\rmeet$ -- Meet Operation}
+\label{per:meet}
+\ra{1.2}
+\resizebox{0.99\linewidth}{!}{%
+\begin{tabular}{@{}rllll@{}}
+\toprule
+$\rel'$ & &$\rel''$ & &$\rel' \rmeet \rel''$\\
+\midrule
+$\qmark$ & $\rmeet$  & $\rel$ & = &$ \rel$ \\ 
+
+\rowcol $\equal$ & $\rmeet$  & $\rel$ & = & $\equal$ \\
+
+$\rels$ &$\rmeet$ &$\srelv{f}{n}{\rel'}$ &= &$\srelmeet{f}{n}$\\
+
+\rowcol $\relv$ &$\rmeet$ &$\vrelv{C}{n}{\rel'}$ &= &$\vrelmeet{C}{n}$\\
+
+$\rela$ &$\rmeet$ &$\arel{\rel'}$ &= &$\arel{\rel \rmeet \rel'}$\\
+
+\rowcol $\rela$ &$\rmeet$ &$\aerelnoleftright{\rel'_{\mathit{def}}}{i}{\rel'_{\mathit{exc}}}$ &= &$\aerelnoleftright{\rel \rmeet\rel'_{\mathit{def}}}{i}{\rel \rmeet\rel'_{\mathit{exc}}}$\\
+
+$\relai$ &$\rmeet$ &$\aerelnoleftright{\rel'_{\mathit{def}}}{j}{\rel'_{\mathit{exc}}}\begin{cases}i = j\\i \neq j\end{cases}\hspace{-1cm}$& =
+& $\begin{array}{l}
+  \aerelnoleftright{\rel_{\mathit{def}} \rmeet \rel'_{\mathit{def}}}{i}{\rel_{\mathit{exc}} \rmeet \rel'_{\mathit{exc}}} \\
+  \arel{\rel_{\mathit{def}} \rmeet \rel'_{\mathit{def}} \rmeet \rel_{\mathit{exc}} \rmeet \rel'_{\mathit{exc}}} \\
+  \end{array}$ \\
+\bottomrule
+\end{tabular}
+}
+\end{table*}
+
+%\subsection{Paths and Correlation Types}\label{ch7:pcortypes}
+
+\subsubsection{Paths}
+The partial equivalence relations discussed in Section~\ref{sec:cor:per} and
+defined in~\ref{corpertyppe} are enough to represent fine-grained information
+for values of the same structured type. For the \disp{stop_thread} example
+discussed in Section~\ref{sec:cintro:example} these would suffice to express the
+equality of the \disp{pid}, \disp{current_thread} and \disp{address_space}
+fields between the input process \disp{in} and the output process \disp{o}, by
+simply mapping this pair to the following partial equivalence:
+ 
+\[
+\left\{
+  \begin{array}{lll}
+   \textrm{\disp{threads}}         &\mapsto &\qmark \\ 
+   \textrm{\disp{pid}}             &\mapsto &\equal \\ 
+   \textrm{\disp{current\_thread}} &\mapsto &\equal\\ 
+   \textrm{\disp{address\_space}}  &\mapsto &\equal\\ 
+  \end{array}
+\right\}.
+\] 
+However, the partial equivalence relations cannot, for instance, be used to 
+convey the equality at line 1 in Figure~\ref{cor:example:body} between the value 
+of the \disp{threads} field of \disp{in} and the local \disp{ta} variable. By not
+tracking information such as this, we lose the targeted information regarding the 
+\disp{threads} field, denoted by $\rel_{th}$ in Figure~\ref{cor:example:results}.   
+In order to express this information, we first need to be able to refer to the 
+substructure \disp{in.threads} and relate its value to the one of \disp{ta}.
+
+To this end, rather than handling only partial equivalences between pairs of
+variables of the same type and approximating the rest to $\qmark$ -- the element
+that conveys no information -- we introduce an intermediate level, allowing us
+to store relations between subparts of values. We begin by introducing
+\emph{access paths}. Unlike the \emph{symbolic paths} introduced in
+Chapter~\ref{chapter6} and defined in~\ref{ch6:sympath:def}, that are used for
+computing dependency summaries with context-sensitive elements, the paths used
+for the correlation analysis are \emph{actual access} paths inside some value's
+structure. The symbolic paths used in deferred dependencies may cover multiple
+actual paths inside a value, whereas the \emph{access paths} required for the
+correlation analysis represent unique chains of internal accesses leading to a
+\emph{single}, nested subvalue. Each access path is rooted at one of the
+program's variables. It is noteworthy to remark that in both cases, an
+intermediate level below variables needs to be introduced as soon as
+fine-grained relations between pairs of variables are considered, directly or
+indirectly.  In the case of deferred dependencies this was not the main goal per
+se but rather a mechanism for obtaining more precision in specific cases for
+already pertinent dependency results. In contrast, for the correlation results
+this is imperative for obtaining useful, expressive information in non-trivial
+cases.  We therefore define a recursive type $\cpath \in \cptype$ encompassing
+this.
+
+\begin{definition}{Access Path Type $\cpath \in \cptype$.}\label{ch7:apathtype:definition}
+\[
+\begin{array}{lll}
+ \cpath := &\ver \pempty     & \textrm{empty -- root}  \\ 
+           &\ver \pstruct\cpath & f \in \fset \\
+           &\ver \pvar\cpath    & C \in \cset \\
+           &\ver \pcell\cpath   & \textrm{$i$ index, program variable.} 
+\end{array}
+\]   
+\end{definition}
+
+\noindent The \emph{empty} path, denoted by $\pempty$, is the special case denoting an
+access to an entire element, i.e. the root. The action of appending a 
+\emph{non-empty} path $\cpath'$ to another path $\cpath$ is denoted by 
+$\cpath \append\cpath'$. For instance, the path denoting the 
+\disp{current_state} field of the \disp{i}-th active, associated thread of the 
+\disp{in} process of our \disp{stop_thread} predicate would be the following: 
+\emph{in.threads$\pcell$@Some.t.current\_thread}.
+  
+Meaningful information is conveyed by associating paths and partial equivalence
+relations. For instance, the equality between \disp{in.threads} and \disp{ta} at 
+line 1 in Figure~\ref{cor:example:body} can be expressed by associating {\equal} to the
+pair of subelements identified by the {\disp{.threads}} path in \disp{in} and by 
+$\pempty$ in \disp{ta}. We call \emph{correlation} such a mapping from a pair of 
+access paths to a partial relation. After setting the \disp{i}-th element of 
+\disp{ta} to \disp{ti}, the thread with the current state set to \disp{Blocked} 
+and everything else left unmodified, we could express the relation between 
+\disp{in} and \disp{ta} by two correlations, namely:
+
+\[
+\begin{array}{lrll}
+          &(\textrm{\disp{.threads}}, \pempty) & \mapsto &\aerel{\equal}{\textrm{\disp{i}}}{\qmark}\\ 
+          &(\textrm{\disp{.threads}}\langle\textrm{\disp{i}}\rangle@\textrm{\disp{Some.t}}, \langle\textrm{\disp{i}}\rangle@\textrm{\disp{Some.t}} ) &\mapsto & 
+          \left\{\begin{array}{rll}
+          \textrm{\disp{identifier}} &\mapsto &\equal \\
+          \textrm{\disp{current\_state}} &\mapsto &\qmark \\
+          \textrm{\disp{stack}} &\mapsto &\equal \\
+          \end{array}\right\}. 
+\end{array}\\%!%!%! I suppose the double \\ was not intentional.
+\] 
+%
+To this end, we introduce \emph{correlation maps} $\corv \in \cor$, defined 
+below. 
+\begin{definition}{Correlation Maps $\corv \in \cor$.}\label{ch7:cormaps:definition}
+
+Correlation maps $\corv \in \cor$ are finite mappings 
+from pairs of paths to partial equivalence relations $\rel \in \rdom$:
+\[\cor : \cptype \times \cptype \; \to \rdom.\]
+\end{definition}
+
+Generally, for two given variables \emph{e} and \emph{o}, a correlation 
+$(\cpath, \crho) \mapsto \rel $ specifies that \emph{e} and \emph{o} have nested 
+subelements, respectively identified by the inner paths $\cpath$ and $\crho$, 
+whose values are related by the relation $\rel$. 
+
+\subsubsection{Alignment}
+\def\pproj{\rightsquigarrow}
+\def\pinj{\curvearrowleft}
+\def\ajoin{\hat{\bigvee}}
 
 \subsection{Correlation analysis}
 
-\section{Experimental evaluation}
+As was the case for the dependency analysis presented in Chapter~\ref{chapter5},
+we are working with a control flow graph (CFG) representation of the predicates'
+bodies. We remind that nodes represent program states and edges are defined by
+statements with a particular exit label $\lambda$. In our case, all the outgoing 
+edges of a node $n$ bear the different cases of the same statement $s$ found at 
+the program point $n$. For each statement $s$ there is an edge labeled 
+$s, \lambda_k$ for each of its possible exit labels $\lambda_k$ (as discussed in
+Section~\ref{sec:lang:mysmil:cfg}). However, 
+similarly to the dependency analysis, our correlation analysis does not depend on 
+this specificity.  
+
+Intraprocedurally, correlation information has to be kept at each point of the 
+control flow graph, for each input and output pair of the node. 
+\begin{definition}{Intraprocedural Correlation Summaries.}\label{ch7:intracordom:definition}
+
+An \emph{intraprocedural} correlation summary is a mapping from pairs of variables 
+$v \in \mathcal{V}$ to correlation maps:
+\def\nocor{\boxempty}
+ \[
+  \intracor \in \mathcal{K},  \;\; \intracor : \mathcal{V} \times \mathcal{V} \rightarrow \cor.\]
+\end{definition}\label{ch7corintrasum} 
+% 
+%% is thus a mapping from pairs of variables $v \in \mathcal{V}$ to 
+%% correlation maps. 
+\noindent There is one special case, called \emph{NoCorrelation}, which 
+associates $\qmark$ -- the least precise partial 
+relation -- to any pair of variables, on any pair of valid, compatible paths.
+It is the top element at the intraprocedural level. 
+\emph{Unreachable} is used for nodes that cannot be reached, as its name implies, 
+and constitutes the bottom element at the intraprocedural level.   
+
+For each node of a given control flow graph, $\intracor(e, o)$ retrieves the 
+correlation map between the local variable $e$ and the output 
+variable $o$. If a mapping for $e$ and $o$ does not currently exist, 
+$\intracor(e, o)$ retrieves the correlation $(\pempty,\pempty) \mapsto \equal$ 
+when $e = o$ or the empty correlation map $\emptyset$, otherwise. 
+
+Establishing the partial order $\ileq$ and the join operation $\ijoin$ is
+straightforward: $\aleq$ (Definition~\ref{ch7:cormapporder:definition}) and
+$\ajoin$ (Definition~\ref{ch7:cormapjoin:definition}) are extended pointwise to
+an intraprocedural summary, for each ordered input-output pair and its
+associated correlation map.
+
+\begin{definition}{Partial Order for Intraprocedural Correlation Summaries.}\label{ch7:intraporder:definition}
+\[
+\ileq \,\subseteq \mathcal{K} \times \mathcal{K} \qquad%\;\;\;\;\;\;\;\;
+\intracor_1 \ileq \intracor_2 \iff \forall e, o \in \mathcal{V}, \; \intracor_1(e, o) \aleq \intracor_2(e, o).
+\]
+\end{definition}
+
+\begin{definition}{Join Operation for Intraprocedural Correlation Summaries.}\label{ch7:intrajoinop:definition}
+\[
+%\bigvee : \mathscr{D} \times \mathscr{D} \to \mathscr{D} \;
+\ijoin: \mathcal{K} \times \mathcal{K} \to \mathcal{K} \qquad
+%
+\intracor_1 \ijoin \intracor_2 = \intracor_3 \iff 
+\forall (e, o),\; \intracor_3(e, o) = \intracor_1(e, o)\; \ajoin\; \intracor_2(e, o).
+\]
+\end{definition}
+%% \phantom{a}
+%
+%% \noindent is straightforward: $\aleq$ and $\ajoin$ are extended pointwise to an 
+%% intraprocedural summary, for each ordered input-output pair and its associated 
+%% correlation map.
+%
+%
+
+Our correlation analysis is a \emph{backward} data-flow analysis, computing an 
+intraprocedural summary at each point of the control flow graph. This represents 
+the correlations at the node's \emph{entry point}. For each exit label, it 
+traverses the control flow graph starting with its corresponding exit node. The 
+intraprocedural summary for the currently analysed label is initialized with 
+pairs between the local value of each associated output variable of the label and 
+the final value of the same output variable, mapped to 
+$(\pempty, \pempty) \mapsto \equal$. The analysis traverses the control flow 
+graph and gradually refines the correlations, using Kildall's worklist 
+algorithm~\cite{kildall73}, until a fixed point is reached. 
+Table~\ref{ch7:representation} summarizes the representation and general equation of 
+the statements. For each statement, the presented data-flow equation operates 
+on the intraprocedural summaries of the statement's \emph{successor} nodes. The 
+intraprocedural summary at the \emph{entry point} of the node is obtained by 
+\emph{joining} the contributions of each \emph{outgoing} edge. 
+
+\begin{definition}\label{ch7:edgecontrib:definition}
+The contribution 
+of an edge $(n, n_i)$ labeled with $s$ and $\lambda_i$ is given by
+$\Ctransfer {\intracor_{n_i}}{s}{\lambda_i} \in \mathbb{C}$ where 
+$\Ctransfer{.}{s}{\lambda_i}$ is the \emph{transfer function} of the edge labeled 
+$s, \lambda_i$. 
+\end{definition}
+\noindent We note that there are four statements supported by {\asmil}, 
+i.e. the equality test, no-operation, the partial structure equality test and the
+possible variant test, that have no write effects and thus have no own 
+contribution and are not included in Table~\ref{ch7:representation}. Excepting the 
+no-operation statement, the correlation information at their entry point is obtained 
+by simply joining the intraprocedural summaries of their successor nodes on the 
+{\lbtrue} and {\lbfalse} exit labels. For the no-operation statement, the correlation 
+information at the entry point is identical to the intraprocedural summary of its 
+only successor node, the one on the {\lbtrue} exit label.  
+ 
+\begin{table*}[hbtp]\centering
+\caption{Statements -- Representations and Data-Flow Equations}
+\label{ch7:representation}
+\begin{minipage}{\textwidth}%
+\makeatletter
+\@tempdima=\textwidth%
+\advance\@tempdima by -6cm\relax%
+\advance\@tempdima by -\tabcolsep\relax%
+\edef\secondcolumnwidthchsevenrepresentation{\the\@tempdima}%
+\makeatother%
+\begin{tabular}{@{}m{6cm}c@{}}
+\toprule
+\textrm{\textsf{Representation}} & \textrm{\textsf{Equation}} \\
+\midrule
+\begin{tikzpicture}[->,>=stealth',shorten >=1pt,auto, node distance=0.9cm,
+                     semithick,
+                     statt/.style={fill=lightgray,draw=none,text=black,ellipse,inner sep=0pt,minimum width=.6cm,minimum height=.45cm}]
+
+   \node[statt]         (N)  {$n$};
+   \matrix[below=of N,row sep=0cm,column sep=.2cm]{
+     \node[statt]         (N1) {$n_1$}; &
+     \node{\vphantom{$n_i$}$\ldots$}; &
+     \node[statt]         (Ni) {$n_i$}; &
+     \node{\vphantom{$n_i$}$\ldots$}; &
+     \node[statt]         (Nn) {$n_n$}; \\
+   };
+   \node[anchor=east, inner sep=0pt] (iN) at (N.west) {$\intracor_{n}$};
+   \node[anchor=east, inner sep=0pt] (iN1) at (N1.west) {$\intracor_{n_1}$};
+   \node[anchor=south east, inner sep=0pt] (iNi) at (Ni.north west) {$\intracor_{n_i}$};
+   \node[anchor=west, inner sep=0pt] (iNn) at (Nn.east) {$\intracor_{n_n}$};
+
+   \draw (N) --             node[left] (lN1) {$s, \lambda_1$} (N1);
+   \draw (N) --             node[right] (lNn) {$s, \lambda_n$} (Nn);
+   \draw (N) --             node[anchor=center,fill=white,inner sep=2pt] (lNi) {$s, \lambda_i$} (Ni);
+
+   \node[rectangle,draw=none,very thin,fit=(N) (N1) (Ni) (Nn) (lN1) (lNn) (lNi) (iN1) (iNi) (iNn),inner sep=0pt] (fitbox) {};
+
+   \path[use as bounding box] (fitbox.north east) rectangle (fitbox.south west);
+ \end{tikzpicture}
+&\multicolumn{1}{@{}m{\secondcolumnwidthchsevenrepresentation}@{}} 
+{ \centering \Large{$ \displaystyle 
+\intracor_n = \largeijoin_{\hspace{1em}\mathclap{\text{\rule{0pt}{3.8ex}}n \xrightarrow {s, \lambda_i} n_i}\hspace{1em}} \Ctransfer {\intracor_{n_i}}{s}{\lambda_i} $}} \\ 
+\end{tabular}
+\end{minipage}
+\begin{minipage}{\textwidth}%
+ \centering%
+ \scriptsize%
+ \begin{tabular}{*{5}{l}}
+    \toprule
+    \textsf{Statement} & &$\mathllap{\Ctransfer{.}{s}{\lambda}:\quad}\dls$ & \kset \\ 
+    \midrule
+
+    \textsf{Assignment} &$o:=e$  &$\{ (e, o) \mapsto [(\pempty, \pempty) \mapsto \equal] \}$   
+    & $\{o\}_{\mathit{true}}$  \\\\
+
+    \textsf{New Struct}&$\recordnew$ &$\forall i, 1\leq i \leq n \; \{(e_i, r) \mapsto [(\pempty, .f_i) \mapsto \equal]\}$ &$\{r\}_{\mathit{true}}$ \\\\
+
+    \textsf{Destructure} &$\recordall$ &$\forall i, 1\leq i \; \leq n \; \{(r, o_i) \mapsto [(.f_i, \pempty) \mapsto \equal]\}$ &$\{o_i\}_{\mathit{true}}$ \\\\
+
+    \textsf{Get Field} & $\recordget$ & $\{ (r, o) \mapsto [(.f_i, \pempty) \mapsto \equal] \}$ &$\{o\}_{\mathit{true}}$ \\\\
+
+    \textsf{Set Field} &$\recordset$  & 
+      $\{ (r, r') \mapsto [(\pempty, \pempty) \mapsto $ & $\{r'\}_{\mathit{true}}$ \\
+      & & $\,\,\;\;\srelibot]$ &\\
+      & & $\;\;(e, r') \mapsto [(\pempty, .f_i) \mapsto \equal]\}$ & \\\\
+   
+    \textsf{Create Var.} & $\varcons$ &  
+      $\{(e, v) \mapsto [(\pempty, @C_p.e) \mapsto \equal]\}$ 
+      & $\{v\}_{\mathit{true}}$ \\\\
+
+    \textsf{Var. Switch} & $\varswitch$ & 
+      $\{(v, o_i) \mapsto [(@C_i.e, \pempty) \mapsto \equal]\} $
+      & $\{o_i\}_{\lambda_{C_i}}$ \\\\
+  
+    \textsf{Array Get} & $\arrayget$  & $\{(a, o) \mapsto [(\pcell, \pempty) \mapsto \equal] \}$ &$\{o\}_{\mathit{true}}$ \\\\
+   
+    \textsf{Array Set} & $\arrayset$ &  
+      $\{ (a, a') \mapsto [(\pempty, \pempty) \mapsto \relaitop]$
+      & $\{a'\}_{\mathit{true}}$ \\
+      &&$\;\; (e, a') \mapsto [(\pempty, \pcell) \mapsto \equal ]\}$&\\ 
+
+    \bottomrule
+  \end{tabular}
+\end{minipage}
+
+\end{table*}
+
+The transfer function $\Ctransfer{.}{s}{\lambda}$ formalizes the correlations 
+created by the statement $s$ on the label $\lambda$ between its local input 
+variables and its local output variables, denoted by $\dls$, as well as the 
+set {\kset} of variables whose values have been redefined by the statement 
+$s$ on the label $\lambda$. These are shown in Table~\ref{ch7:representation}. 
+There is one crucial difference between transfer functions 
+$\Ctransfer{.}{s}{\lambda}$ and intraprocedural summaries $\intracor$. An 
+intraprocedural summary $\intracor$ implicitly maps any pair $(v,v)$ for 
+$v \in {\mathcal{V}}$ to $(\pempty, \pempty) \mapsto \equal$. On the contrary, 
+in $\dls$, when the variable $v$ is used as both input and output by the 
+statement $s$, the pair $(v, v)$ is mapped to the correlation map known between the 
+input's $v$ old value and the output's $v$ fresh value. Otherwise, when $v$ is 
+an output, i.e. $v \in \mathit{kill}_{\lambda}$, but not an input of $s$, $(v, v)$ 
+is mapped to $\emptyset$. We remark that $\intracor$ represents a \emph{state},
+while $\dls$ represents a transition.
+
+\def\dli{c_{\lambda_i}^s}
+In order to obtain the contribution $\Ctransfer {\intracor_{n_i}}{s}{\lambda_i}$ of 
+an edge labeled with $s$ and $\lambda_i$, we need to connect the information
+given by $\dli$ to the information contained in the intraprocedural summary 
+$\intracor_{n_i}$. For example, at the entry of node 3 in Figure~\ref{example:body},
+when considering the scenario in which the predicate exits with {\disp{true}},
+the intraprocedural summary contains the mapping: \\
+%
+\begin{center}%
+  \scalebox{0.88}{%
+    \parbox{\linewidth}{%
+      \[
+      \begin{array}{lrl}
+        (\textrm{\disp{th}}, \textrm{\disp{o}}) &\mapsto  
+        &\left[(@\textrm{\disp{Some.t}}, \textrm{\disp{.threads}}
+          \langle\textrm{\disp{i}}\rangle@\textrm{\disp{Some.t}}) \mapsto          
+          \left\{\begin{array}{rll}
+                   \textrm{\disp{identifier}} &\mapsto &\equal \\
+                   \textrm{\disp{current\_state}} &\mapsto &\qmark \\
+                   \textrm{\disp{stack}} &\mapsto &\equal \\
+                 \end{array}\right\}\right].
+      \end{array}
+      \]%
+    }%
+  }%
+\end{center}
+
+\noindent On the {\disp{true}} edge, statement 2 creates the mapping:
+%
+\[
+\begin{array}{lrl}
+(\textrm{\disp{ta}}, \textrm{\disp{th}}) &\mapsto  
+&\left[(\langle\textrm{\disp{i}}\rangle, \pempty) \mapsto \equal\right].
+\end{array}
+\] 
+
+\noindent Intuitively, since we are traversing the graph backwards and we are mapping 
+\emph{ordered} (local) input-output pairs, (\disp{ta}, \disp{th}) and (\disp{th}, 
+\disp{o}) can be seen as a \emph{def-use} pair: the correlation associated to 
+(\disp{ta}, \disp{th}) expresses the relation between the \emph{defined} value of 
+{\disp{th}} and the input {\disp{ta}} used for creating it, while the
+correlation associated to (\disp{th},~\disp{o}) shows a subsequent \emph{use}
+of that value of {\disp{th}} for creating {\disp{o}}. The contribution of 
+statement 2 on the {\disp{true}} edge should capture this flow of \disp{ta}'s 
+value to \disp{o}'s value, through the variable \disp{th}. Thus, it should 
+contain a mapping for the pair (\disp{ta}, \disp{o}). In the general case we 
+need to detect any variable $r$ such that $[(p, r) \mapsto \corv] \in \dli$,   
+$[(r, q) \mapsto \corv'] \in \intracor_{n_i}$ and compute the mapping for $(p,q)$
+in $\Ctransfer{\intracor_{n_i}}{s}{\lambda_i}$.
+
+In order to compute the correlation map associated to (\disp{ta}, \disp{o}),
+we take into account the fact that both the right path $\pempty$ of 
+$\dls(\textrm{\disp{ta}}, \textrm{\disp{th}})$ and the left path $@$\disp{Some.t} 
+of $\intracor_{n_3}\textrm{(\disp{th}, \disp{o}})$ refer to the {\disp{th}} variable.
+However, they do not represent traversals of the same depth: $\pempty$ refers to 
+the entire value of {\disp{th}}, while $@$\disp{Some.t} refers to the value below 
+the constructor \disp{Some}. Between {\disp{ta}} and {\disp{o}} we can conclude 
+that the values nested under the \disp{Some} constructor of the {\disp{i}}-th 
+elements are related:
+\[
+\begin{array}{lrl}
+(\textrm{\disp{ta}}, \textrm{\disp{o}}) &\mapsto  
+           &\left[\langle\textrm{\disp{i}}\rangle@\textrm{\disp{Some.t}}, 
+           \textrm{\disp{.threads}}\langle\textrm{\disp{i}}\rangle@\textrm{\disp{Some.t}}) \mapsto          
+           \left\{\begin{array}{rll}
+           \textrm{\disp{identifier}} &\mapsto &\equal \\
+           \textrm{\disp{current\_state}} &\mapsto &\qmark \\
+           \textrm{\disp{stack}} &\mapsto &\equal \\ 
+           \end{array}\right\}\right].
+\end{array}
+\] 
+ 
+We call the process of obtaining the correlation map associated to (\disp{ta}, 
+\disp{o}) from the correlations associated to (\disp{ta}, \disp{th}) and 
+(\disp{th}, \disp{o}) \emph{composition}.
+
+In the general case, the composition operation is denoted by $\compose$ and it 
+refers to the process of computing the flow of a variable $p$ to a variable $q$ 
+through an intermediate variable $r$. Thus, when knowing that 
+$(p, r) \mapsto [(\cpath, \crho) \mapsto \rel]$ and that 
+$(r, q) \mapsto [(\cpath', \crho') \mapsto \rel']$,
+we must first obtain the \emph{link} (Definition~\ref{ch7:link:definition})
+between the paths $\crho$ and $\cpath'$ relating subvalues of $r$ to subvalues of
+$p$ and $q$, respectively. This is obtained by \emph{matching} with $\findl$ 
+(Definition~\ref{ch7:match:definition}).   
+In the context of the example given above, $\crho$ and $\cpath'$ are the paths 
+referring to subvalues of the {\disp{th}} variable, i.e. $\pempty$ and 
+$@$\disp{Some.t}, respectively. If the two paths are incompatible, i.e. they
+refer to different, unrelated subvalues of $r$, there is no flow between $p$ 
+and $q$ through $r$. If the paths are compatible, we can compute the correlation
+between $p$ and $r$, by distinguishing between the three different possible link 
+cases obtained with $\findl$. 
+
+The case when the same subvalue of $r$ identified by $\crho$ 
+(and the identical $\cpath'$) is related to both $p$ and $q$ is depicted 
+below:
+
+\begin{longtable}{l@{}l@{}}
+\begin{tikzpicture}
+\node[scale=0.8] (a){$\findl(\crho, \cpath') = \identical$};
+\node[below of=a] (b){\phantom{A}};
+\end{tikzpicture}
+%
+&  \hspace{-4cm}%%\begin{forest}
+ %%    oni tree defaults,
+ %%    [, % Start directly with a comma: no node contents
+ %%     phantom,% phantom == invisible node, just here for the layout. It is the fake "common ancestor" to both trees shown in this diagram
+ %%     s sep=2.5cm,% Trees have two axes for layout s (sibling), the "horizontal" axis, and l (level), the "vertical" axis. Make the two trees separated by a centimeter
+ %%     %
+ %%     % Do not leave blank lines, always put a % when you want to skip a line, otherwise it crashes forest
+ %%    %First
+ %%    [, dot tree,name=ba1, triangle fit whole subtree={bottom space=.5cm},% start squiggly tree,
+ %%        [, zig
+ %%          [;$\cpath$, zag=8mm, 
+ %%            [,name=ax1, zig, triangle fit whole subtree={triangle sep=1mm, bottom space=0.2cm, orange},
+ %%               [,name=d1, 
+ %%               ]
+ %%               []
+ %%               []
+ %%            ]
+ %%          ]
+ %%        ]
+ %%      ]
+ %% %Second
+ %%     [, dot tree,name=ba2, triangle fit whole subtree={bottom space=.5cm},% start squiggly tree,
+ %%        [, zig
+ %%          [;$\crho$, zag=8mm, 
+ %%            [,name=ax2, zig, triangle fit whole subtree={triangle sep=1mm, bottom space=0.2cm, orange},
+ %%               [,name=d2,
+ %%               ]
+ %%               []
+ %%               []
+ %%            ]
+ %%          ]
+ %%        ]
+ %%      ]
+ %% %Third
+ %%    [, dot tree,name=ba3, triangle fit whole subtree={bottom space=.5cm,},% start squiggly tree,
+ %%        [, zig
+ %%          [;$\crho'$, zag=6mm, 
+ %%            [,name=ax3, zig, triangle fit whole subtree={triangle sep=1mm, bottom space=0.2cm, orange},
+ %%               [,name=d3, 
+ %%               ]
+ %%               []
+ %%               []
+ %%            ]
+ %%          ]
+ %%        ]
+ %%      ]
+ %%    ]
+ %%   \draw[<->, shorten=4pt, thick, orange] (ax1) edge[bend left] node[above]{$\rel$} (ax2);
+ %%   \draw[<->, shorten=4pt, thick, orange] (ax2) edge[bend left] node[above]{$\rel'$} (ax3);
+ %%  % \draw[<->, shorten=2pt, dashed, thick, iburg,] (ax1) edge[bend right] node[below]{$\mathcal{R} \rjoin \mathcal{R}'$} (ax3);
+ %%  \path (v1)  node[xshift=-2.8cm, yshift=2cm]{\Large$p$};
+ %%  \path (v2) node[xshift=-2.7cm, yshift=2cm]{\Large$r$};
+ %%    \path (0,0) node[xshift=0.5cm, yshift =-0.4cm]{\Large$\cpath'$};
+ %%    \path (0,0) node[xshift=3.5cm, yshift =-0.2cm]{\Large$q$};
+ %%  \end{forest}
+\end{longtable}
+
+\noindent In this case, computing the flow from $p$ to $q$ through $r$ is rather 
+straightforward. Since the same subvalue of $r$ is related to $p$'s 
+subvalue identified by $\cpath$ and to $q$'s subvalue identified by $\crho'$,
+we can relate these two subvalues and map the pair $(\cpath, \crho')$ to the 
+relation obtained by composing $\rel$ and $\rel'$. We note that given the special 
+form of partial relations $\rel \in \rdom$, the compose operation at this level is 
+equivalent to $\rjoin$\footnote{However, this would not be the case anymore for 
+a more complex partial relation type, including not only equivalences but 
+also more general relations.} (Definition~\ref{ch7:joinoperationper:definition}). 
+The computation of the correlation for $p$ and $q$ is 
+depicted below:
+
+\begin{longtable}{l@{}l@{}}
+\begin{tikzpicture}
+\node[scale=0.8] (a){$\findl(\crho, \cpath') = \identical$};
+\node[below of=a] (b){\phantom{A}};
+\end{tikzpicture}%\hspace{-4cm}
+&\hspace{-4cm} %%\begin{forest}
+ %%    oni tree defaults,
+ %%    [, % Start directly with a comma: no node contents
+ %%     phantom,% phantom == invisible node, just here for the layout. It is the fake "common ancestor" to both trees shown in this diagram
+ %%     s sep=2.5cm,% Trees have two axes for layout s (sibling), the "horizontal" axis, and l (level), the "vertical" axis. Make the two trees separated by a centimeter
+ %%     %
+ %%     % Do not leave blank lines, always put a % when you want to skip a line, otherwise it crashes forest
+ %%    %First
+ %%    [, dot tree,name=ba1, triangle fit whole subtree={bottom space=.5cm},% start squiggly tree,
+ %%        [, zig
+ %%          [;$\cpath$, zag=8mm, 
+ %%            [,name=ax1, zig, triangle fit whole subtree={triangle sep=1mm, bottom space=0.2cm, orange},
+ %%               [,name=d1, 
+ %%               ]
+ %%               []
+ %%               []
+ %%            ]
+ %%          ]
+ %%        ]
+ %%      ]
+ %% %Second
+ %%     [, dot tree,name=ba2, triangle fit whole subtree={bottom space=.5cm},% start squiggly tree,
+ %%        [, zig
+ %%          [;$\crho$, zag=8mm, 
+ %%            [,name=ax2, zig, triangle fit whole subtree={triangle sep=1mm, bottom space=0.2cm, orange},
+ %%               [,name=d2,
+ %%               ]
+ %%               []
+ %%               []
+ %%            ]
+ %%          ]
+ %%        ]
+ %%      ]
+ %% %Third
+ %%    [, dot tree,name=ba3, triangle fit whole subtree={bottom space=.5cm,},% start squiggly tree,
+ %%        [, zig
+ %%          [;$\crho'$, zag=6mm, 
+ %%            [,name=ax3, zig, triangle fit whole subtree={triangle sep=1mm, bottom space=0.2cm, orange},
+ %%               [,name=d3, 
+ %%               ]
+ %%               []
+ %%               []
+ %%            ]
+ %%          ]
+ %%        ]
+ %%      ]
+ %%    ]
+ %%   \draw[<->, shorten=4pt, thick, orange] (ax1) edge[bend left] node[above]{$\rel$} (ax2);
+ %%   \draw[<->, shorten=4pt, thick, orange] (ax2) edge[bend left] node[above]{$\rel'$} (ax3);
+ %%  \draw[<->, shorten=2pt, dashed, thick, iburg,] (ax1) edge[bend right,looseness=1.15] node[below]{$\rel \rjoin \rel'$} (ax3);
+ %%  \path (v1)  node[xshift=-2.8cm, yshift=2cm]{\Large$p$};
+ %%  \path (v2) node[xshift=-2.7cm, yshift=2cm]{\Large$r$};
+ %%    \path (0,0) node[xshift=0.5cm, yshift =-0.4cm]{\Large$\cpath'$};
+ %%    \path (0,0) node[xshift=3.5cm, yshift =-0.2cm]{\Large$q$};
+ %%  \end{forest}
+\end{longtable}
+   
+The subelements of $r$ related to $p$ and to $q$ respectively can also
+have different granularities, one being nested deeper in $r$ than the other. 
+For instance, the subvalue of $r$ identified by the path $\crho$ can be 
+closer to the root than its subelement identified by $\cpath'$ related to 
+$q$. This case is depicted below:
+
+\begin{longtable}{l@{}l@{}}
+\begin{tikzpicture}
+\node[scale=0.8] (a){$\findl(\crho, \cpath') = \leftcase\;\csigma$};
+\node[below of=a] (b){\phantom{A}};
+\end{tikzpicture}
+&\hspace{-4cm} %%\begin{forest}
+ %%    oni tree defaults,
+ %%    [, % Start directly with a comma: no node contents
+ %%     phantom,% phantom == invisible node, just here for the layout. It is the fake "common ancestor" to both trees shown in this diagram
+ %%     s sep=3cm,% Trees have two axes for layout s (sibling), the "horizontal" axis, and l (level), the "vertical" axis. Make the two trees separated by a centimeter
+ %%     %
+ %%     % Do not leave blank lines, always put a % when you want to skip a line, otherwise it crashes forest
+ %%    %First
+ %%    [, dot tree,name=ba1, triangle fit whole subtree={bottom space=.5cm},% start squiggly tree,
+ %%        [, zig
+ %%          [;$\cpath$, zag=5mm, 
+ %%            [,name=ax1, zig=6mm, triangle fit whole subtree={triangle sep=1mm, bottom space=0.3cm, orange},
+ %%               [; $\csigma$, name=d1, edge label node style+={fill=iburg, text=iburg},
+ %%                            invisible tree, %only=<7->{triangle fit whole subtree={triangle sep=1mm, bottom space=0.2cm, orange},},
+ %%               []
+ %%               []
+ %%             ]
+ %%            ]
+ %%          ]
+ %%        ]
+ %%      ]
+ %% %Second
+ %%     [, dot tree,name=ba2, triangle fit whole subtree={bottom space=.5cm},% start squiggly tree,
+ %%        [, zig
+ %%          [;$\crho$, zag=8mm, 
+ %%            [,name=ax2, zig=8mm, triangle fit whole subtree={triangle sep=1mm, bottom space=0.3cm, orange},
+ %%               [; $\csigma$, name=d2, edge label swap, edge label node style+={fill=caribbeangreen, text=caribbeangreen},
+ %%                            % only not=<6->{invisible tree}, only=<6->{
+ %%                              triangle fit whole subtree={triangle sep=1mm, bottom space=0.2cm, caribbeangreen},%},
+ %%                []
+ %%                []
+ %%               ]
+ %%            ]
+ %%          ]
+ %%        ]
+ %%      ]
+ %% %Third
+ %%    [, dot tree,name=ba3, triangle fit whole subtree={bottom space=.5cm,},% start squiggly tree,
+ %%        [, 
+ %%          [;$\crho'$, 
+ %%            [,name=ax3, triangle fit whole subtree={triangle sep=1mm, bottom space=0.1cm, caribbeangreen},
+ %%               []
+ %%               []
+ %%            ]
+ %%          ]
+ %%        ]
+ %%      ]
+ %%    ]
+ %%   \draw[<->, shorten=2pt, thick, orange] (ax1) edge[bend left,out=40,in=140,looseness=0.9] node[above]{$\rel$} (ax2);
+ %%   \draw[<->, shorten=2pt, thick, caribbeangreen] (d2) edge[bend left] node[above]{$\rel'$} (ax3);
+ %%   %\draw[<->, shorten=2pt, dashed, thick, iburg, only not=<8->{opacity=0}] (d1) edge[out=-35,in=-135,looseness=1] node[below]{$ \pproj(\sigma, \mathcal{R}) \rjoin \mathcal{R}'$} (ax3);
+ %%  \path (v1)  node[xshift=-3.2cm, yshift=1.9cm]{\Large$p$};
+ %%  \path (v2) node[xshift=-2.7cm, yshift=1.9cm]{\Large$r$};
+ %%  \path (0,0) node[xshift=0.5cm, yshift =-0.4cm]{\Large$\cpath'$};
+ %%  \path (0,0) node[xshift=3.9cm, yshift =-0.2cm]{\Large$q$};
+ %%  \end{forest}
+\end{longtable}
+
+\noindent In this case we can only detect the flow of $p$ to $q$ at the level of $r$'s
+subelement that is related to both $p$ and $q$, i.e. the subelement nested deeper.
+Thus, in order to compute the correlation between $p$ and $q$, we need to project 
+$\csigma$ on $\rel$, and to compose the obtained relation with $\rel'$. This is 
+summarized by the following figure:  
+
+\begin{longtable}{l@{}l@{}}
+\begin{tikzpicture}
+\node[scale=0.8] (a){$\findl(\crho, \cpath') = \leftcase\;\csigma$};
+\node[below of=a] (b){\phantom{A}};
+\end{tikzpicture}
+& \hspace{-4cm} %%\begin{forest}
+ %%    oni tree defaults,
+ %%    [, % Start directly with a comma: no node contents
+ %%     phantom,% phantom == invisible node, just here for the layout. It is the fake "common ancestor" to both trees shown in this diagram
+ %%     s sep=3cm,% Trees have two axes for layout s (sibling), the "horizontal" axis, and l (level), the "vertical" axis. Make the two trees separated by a centimeter
+ %%     %
+ %%     % Do not leave blank lines, always put a % when you want to skip a line, otherwise it crashes forest
+ %%    %First
+ %%    [, dot tree,name=ba1, triangle fit whole subtree={bottom space=.5cm},% start squiggly tree,
+ %%        [, zig
+ %%          [;$\cpath$, zag=5mm, 
+ %%            [,name=ax1, zig=6mm, triangle fit whole subtree={triangle sep=1mm, bottom space=0.3cm, orange},
+ %%               [; $\csigma$, name=d1, edge label node style+={fill=iburg, text=iburg},
+ %%                             triangle fit whole subtree={triangle sep=1mm, bottom space=0.2cm, orange},
+ %%               []
+ %%               []
+ %%             ]
+ %%            ]
+ %%          ]
+ %%        ]
+ %%      ]
+ %% %Second
+ %%     [, dot tree,name=ba2, triangle fit whole subtree={bottom space=.5cm},% start squiggly tree,
+ %%        [, zig
+ %%          [;$\crho$, zag=8mm, 
+ %%            [,name=ax2, zig=8mm, triangle fit whole subtree={triangle sep=1mm, bottom space=0.3cm, orange},
+ %%               [; $\csigma$, name=d2, edge label swap, edge label node style+={fill=caribbeangreen, text=caribbeangreen},
+ %%                             triangle fit whole subtree={triangle sep=1mm, bottom space=0.2cm, caribbeangreen},
+ %%                []
+ %%                []
+ %%               ]
+ %%            ]
+ %%          ]
+ %%        ]
+ %%      ]
+ %% %Third
+ %%    [, dot tree,name=ba3, triangle fit whole subtree={bottom space=.5cm,},% start squiggly tree,
+ %%        [, 
+ %%          [;$\crho'$, 
+ %%            [,name=ax3, triangle fit whole subtree={triangle sep=1mm, bottom space=0.1cm, caribbeangreen},
+ %%               []
+ %%               []
+ %%            ]
+ %%          ]
+ %%        ]
+ %%      ]
+ %%    ]
+ %%   \draw[<->, shorten=2pt, thick, orange] (ax1) edge[bend left,out=40,in=140,looseness=0.9] node[above]{$\rel$} (ax2);
+ %%   \draw[<->, shorten=2pt, thick, caribbeangreen] (d2) edge[bend left] node[above]{$\rel'$} (ax3);
+ %%   \draw[<->, shorten=2pt, dashed, thick, iburg,] (d1) edge[out=-35,in=-135,looseness=1] node[below]{$ \pproj(\csigma, \rel) \rjoin \rel'$} (ax3);
+ %%  \path (v1)  node[xshift=-3.2cm, yshift=1.9cm]{\Large$p$};
+ %%  \path (v2) node[xshift=-2.7cm, yshift=1.9cm]{\Large$r$};
+ %%  \path (0,0) node[xshift=0.5cm, yshift =-0.4cm]{\Large$\cpath'$};
+ %%  \path (0,0) node[xshift=3.9cm, yshift =-0.2cm]{\Large$q$};
+ %%  \end{forest}
+\end{longtable}
+
+Finally, in the complementary case, the subvalue of $r$ identified by the 
+path $\crho$ and correlated to $p$ can be nested deeper than the subvalue 
+identified by $\cpath'$ which is correlated to $q$. This case is depicted 
+below:
+
+\begin{longtable}{l@{}l@{}}
+\begin{tikzpicture}
+\node[scale=0.8] (a){$\findl(\crho, \cpath') = \rightcase\;\csigma$};
+\node[below of=a] (b){\phantom{A}};
+\end{tikzpicture}
+&\hspace{-3.2cm} %%\begin{forest}
+ %%    oni tree defaults,
+ %%    [, % Start directly with a comma: no node contents
+ %%     phantom,% phantom == invisible node, just here for the layout. It is the fake "common ancestor" to both trees shown in this diagram
+ %%     s sep=2cm,% Trees have two axes for layout s (sibling), the "horizontal" axis, and l (level), the "vertical" axis. Make the two trees separated by a centimeter
+ %%     %
+ %%     % Do not leave blank lines, always put a % when you want to skip a line, otherwise it crashes forest
+ %%    %First
+ %%    [, dot tree,name=ba1, triangle fit whole subtree={bottom space=.5cm},% start squiggly tree,
+ %%        [, zig
+ %%          [;$\cpath$, name=d1, zag=5mm, triangle fit whole subtree={triangle sep=1mm, bottom space=0.3cm, orange},
+ %%              for children={invisible},
+ %%               []
+ %%               []
+ %%          ]
+ %%        ]
+ %%      ]
+ %% %Second
+ %%     [, dot tree,name=ba2, triangle fit whole subtree={bottom space=.5cm},% start squiggly tree,
+ %%        [, zig
+ %%          [;$\crho$, zag=8mm, 
+ %%            [,name=ax2, zig=8mm, triangle fit whole subtree={triangle sep=1mm, bottom space=0.3cm, caribbeangreen},%!%!%!%! Stray beamer only=..., should it be caribbeangreen or not?
+ %%               [; $\csigma$, name=d2, triangle fit whole subtree={triangle sep=1mm, bottom space=0.2cm, orange},
+ %%                 %only=<11>{edge label node style+={fill=iburg, text=iburg},},
+ %%                 for children={invisible},
+ %%                []
+ %%                []
+ %%               ]
+ %%            ]
+ %%          ]
+ %%        ]
+ %%      ]
+ %%     [, dot tree,name=ba3,
+ %%        %only=<9>{invisible tree},
+ %%        triangle fit whole subtree={bottom space=.5cm,},
+ %%        for tree={before drawing tree={x+=1.5cm},},% start squiggly tree,
+ %%        [, zig
+ %%          [;$\crho'$, zag, 
+ %%            [,name=ax3, zig, triangle fit whole subtree={triangle sep=1mm, bottom space=0.3cm, caribbeangreen},
+ %%               [; $\csigma$,name=d3, %only=<11->{triangle fit whole subtree={triangle sep=1mm, bottom space=0.2cm, iburg},},
+ %%                invisible,
+ %%                 %only=<11>{edge label node style+={fill=iburg, text=iburg},},
+ %%                 for children={invisible},
+ %%                []
+ %%                []
+ %%               ]
+ %%            ]
+ %%          ]
+ %%        ]
+ %%      ]
+ %%    ]
+ %%   \draw[<->, shorten=2pt, thick, orange] (d1) edge[bend left] node[above]{$\rel$} (d2);
+ %%   \draw[<->, shorten=2pt, thick, caribbeangreen] (ax2) edge[bend left] node[above]{$\rel'$} (ax3);
+ %%   %\draw[<->, shorten=2pt, dashed, thick, iburg, only=<-10>{opacity=0}] (d1) edge[out=-60, in=-150] node[below]{$\mathcal{R} \rjoin \pproj(\mathcal{R}', \sigma)$} (d3);
+ %%   \path (v1)  node[xshift=-1.7cm, yshift=2cm]{\Large$p$};
+ %%   \path (v2) node[xshift=-2.7cm, yshift=2cm]{\Large$r$};
+ %%   \path (0,0) node[xshift=0.5cm, yshift =-0.4cm]{\Large$\cpath'$};
+ %%   \path (0,0) node[xshift=3.9cm, yshift =-0.2cm]{\Large$q$};
+ %%  \end{forest} 
+\end{longtable}
+
+\noindent As in the previous case, we can only detect the flow of $p$ to $q$ at 
+the level of $r$'s subelement that is related to both $p$ and $q$, i.e. the 
+subelement nested deeper. In this case we need to project $\csigma$ on $\rel'$ 
+and to compose the obtained relation with $\rel$. The flow between $p$ and $q$ is 
+at the level of the subvalues identified by $\cpath$ and $\crho'::\csigma$ respectively.
+This is illustrated below: 
+
+\begin{longtable}{l@{}l@{}}
+\begin{tikzpicture}
+\node[scale=0.8] (a){$\findl(\crho, \cpath') = \rightcase\;\csigma$};
+\node[below of=a] (b){\phantom{A}};
+\end{tikzpicture} \hspace{-3.2cm}
+&  
+%%\begin{forest}
+ %%    oni tree defaults,
+ %%    [, % Start directly with a comma: no node contents
+ %%     phantom,% phantom == invisible node, just here for the layout. It is the fake "common ancestor" to both trees shown in this diagram
+ %%     s sep=2cm,% Trees have two axes for layout s (sibling), the "horizontal" axis, and l (level), the "vertical" axis. Make the two trees separated by a centimeter
+ %%     %
+ %%     % Do not leave blank lines, always put a % when you want to skip a line, otherwise it crashes forest
+ %%    %First
+ %%    [, dot tree,name=ba1, triangle fit whole subtree={bottom space=.5cm},% start squiggly tree,
+ %%        [, zig
+ %%          [;$\cpath$, name=d1, zag=5mm, triangle fit whole subtree={triangle sep=1mm, bottom space=0.3cm, orange},
+ %%              for children={invisible},
+ %%               []
+ %%               []
+ %%          ]
+ %%        ]
+ %%      ]
+ %% %Second
+ %%     [, dot tree,name=ba2, triangle fit whole subtree={bottom space=.5cm},% start squiggly tree,
+ %%        [, zig
+ %%          [;$\cpath'$, zag=8mm, 
+ %%            [,name=ax2, zig=8mm, triangle fit whole subtree={triangle sep=1mm, bottom space=0.3cm, caribbeangreen},
+ %%               [; $\csigma$, name=d2, triangle fit whole subtree={triangle sep=1mm, bottom space=0.2cm, orange},
+ %%                 edge label node style+={fill=iburg, text=iburg},
+ %%                 for children={invisible},
+ %%                []
+ %%                []
+ %%               ]
+ %%            ]
+ %%          ]
+ %%        ]
+ %%      ]
+ %%     [, dot tree,name=ba3,
+ %%        %only=<9>{invisible tree},
+ %%        triangle fit whole subtree={bottom space=.5cm,},
+ %%        for tree={before drawing tree={x+=1.5cm},},% start squiggly tree,
+ %%        [, zig
+ %%          [;$\crho'$, zag, 
+ %%            [,name=ax3, zig, triangle fit whole subtree={triangle sep=1mm, bottom space=0.3cm, caribbeangreen},
+ %%               [; $\csigma$,name=d3, triangle fit whole subtree={triangle sep=1mm, bottom space=0.2cm, iburg},
+ %%                 edge label node style+={fill=iburg, text=iburg},
+ %%                 for children={invisible},
+ %%                []
+ %%                []
+ %%               ]
+ %%            ]
+ %%          ]
+ %%        ]
+ %%      ]
+ %%    ]
+ %%   \draw[<->, shorten=2pt, thick, orange] (d1) edge[bend left] node[above]{$\rel$} (d2);
+ %%   \draw[<->, shorten=2pt, thick, caribbeangreen] (ax2) edge[bend left] node[above]{$\rel'$} (ax3);
+ %%   \draw[<->, shorten=2pt, dashed, thick, iburg,] (d1) edge[out=-60, in=-150] node[below]{$\rel \rjoin \pproj(\csigma,\rel')$} (d3);
+ %%   \path (v1)  node[xshift=-1.7cm, yshift=2cm]{\Large$p$};
+ %%   \path (v2) node[xshift=-2.7cm, yshift=2cm]{\Large$r$};
+ %%   \path (0,0) node[xshift=0.5cm, yshift =-0.4cm]{\Large$\cpath'$};
+ %%   \path (0,0) node[xshift=3.9cm, yshift =-0.2cm]{\Large$q$};
+ %%  \end{forest} 
+\end{longtable}
+
+
+Formally, if the $\crho$ and $\cpath'$ paths are compatible, we 
+compose the correlation elements $(\pi, \rho) \mapsto \rel$ and 
+$(\pi', \rho') \mapsto \rel'$, thereby obtaining a new correlation 
+element, $(\pi_{\bullet}, \rho_{\bullet}) \mapsto \rel_{\bowtie}$, which is  
+computed as shown below.
+
+\begin{definition}{Computing $(\pi_{\bullet}, \rho_{\bullet}) \mapsto \rel_{\bowtie}$.}\label{ch7:compcomposeelem:definition}
+\[
+\begin{array}{l}
+%% (\pi_{\bullet}, \rho_{\bullet}) = (\pi, \rho) \bullet (\pi', \rho') \;\;
+ (\pi_{\bullet}, \rho_{\bullet}) =(\pi, \rho) \bullet (\pi', \rho') \overset{\mathit{def}}{=}
+\left\{\begin{array}{ll}
+         (\pi, \rho')            &{\textrm{when} \findl(\rho, \pi') = \identical}  \\
+         (\pi :: \sigma, \rho')  &{\textrm{when} \findl(\rho, \pi') = \leftcase\; \sigma} \\         
+         (\pi, \rho'::\sigma)    &{\textrm{when} \findl(\rho, \pi') = \rightcase\; \sigma}\\
+\end{array}\right.\\\\
+%
+ \rel_{\bowtie} = {\rel} \bowtie \rel' \overset{\mathit{def}}{=}
+\left\{\begin{array}{ll}
+          \rel \rjoin \rel'&{\textrm{when} \findl(\rho, \pi') = \identical}  \\
+          \pproj(\sigma, \rel) \rjoin \rel'  &{\textrm{when} \findl(\rho, \pi') = \leftcase\; \sigma} \\         
+          \rel \rjoin \pproj(\sigma, \rel') &{\textrm{when} \findl(\rho, \pi') =  \rightcase\; \sigma}\\
+\end{array}\right.
+%
+\end{array}
+\]
+\end{definition}
+%
+%
+\noindent We note that the use of the projection operation $\pproj$ 
+(Definition~\ref{ch7:pprojoperator:definition}) for both compatible,
+non-identical link cases for $r$'s access paths related to $p$ and to $q$
+respectively, is a consequence of not choosing a canonical form for correlations.
+The flexibility confered by the absence of a canonical correlation form is 
+visible at the composition level.
+   
+The composition of correlation maps is denoted by $\acompose$ and defined below. 
+\begin{definition}{Composition of Correlation Maps.}\label{ch7:composecormaps:definition}
+
+Computing $\corv_1 \acompose \corv_2$ amounts to intersecting the composition of
+all correlation elements from $\corv_1$ and $\corv_2$:\\
+
+\centerline{$
+(\corv_1 \acompose \corv_2)(\pi_{\bullet}, \rho_{\bullet}) =
+\displaystyle\mathop{\bigwedge\raisebox{-3pt}
+{$\displaystyle\mathlarger{\mathlarger{{}_{\mathscr{R}}}}$}}_{\hspace{1.9em}\mathclap{\substack{(\pi, \rho) \mapsto \rel \in \corv_1\\ (\pi', \rho') \mapsto \rel' \in \corv_2 \\ (\pi_{\bullet}, \rho_{\bullet}) =  (\pi, \rho) \bullet (\pi', \rho')}}\hspace{1.9em}}^{} \rel  \bowtie \rel'.
+ $}
+\end{definition}
+
+Finally, the contribution $\Ctransfer {\intracor_{n_i}}{s}{\lambda_i}$ is 
+obtained as defined below. 
+
+\begin{definition}{Contribution $\Ctransfer {\intracor_{n_i}}{s}{\lambda_i}$.}\label{ch7:computecontrib:definition}
+\[ \compose : \mathbb{C} \times \mathcal{K} \to \mathcal{K}\;\;\;
+ \dls \compose \intracor = \intracor' \;\;\;
+ \textrm{where } 
+ \displaystyle \intracor'(p,q) = \hat{\bigwedge_{r}} (\dls(p, r) \acompose \intracor(r, q)).\]
+\end{definition}
+\noindent It is depicted in Figure~\ref{intra:cor:contrib}.
+
+\begin{figure}[hbt]\centering
+\begin{tikzpicture}
+[scale=0.4, auto]
+\node[vertex] (n1) at (10.5,14) {\emph{\phantom{switch }\Large{statement s}\phantom{switch}}}; 
+\draw[edge] (10.5,16.3) -- (10.5,15.2); 
+%\node [above](l1) at (3.2, 16.15) {a};
+\node [above](l9) at (10.45, 16.1) {$(c^s_{\lambda_1} \compose \Delta_{\lambda_1})\ijoin \ldots \ijoin (c^s_{\lambda_n} \compose \Delta_{\lambda_n})$ };
+%\node (contrib) at (20.2, 14.8) {c} ;
+%\node (line2) at (21, 14.3) {d};
+
+\draw[edge] (8.5, 12.75) -- (7.5, 9.5);
+\node [below](l2) at (7.1, 11.9) {$c^s_{\lambda_1}$};
+\node [above](l3) at (6.5, 9.4) {$\intracor_{\lambda_1}$};
+\draw[edge] (12.5, 12.75) -- (13.5, 9.5);
+\node [below](l6) at (10.5, 12.5) {$\ldots$};
+\node [below](l4) at (14, 11.8) {$c^s_{\lambda_n}$};
+\node [above](l5) at (14.6, 9) {$\intracor_{\lambda_n}$};
+\node [below](l7) at (6.2, 12.9) {$c^s_{\lambda_1} \compose \intracor_{\lambda_1}$};
+\node [below](l8) at (15, 12.9) {$c^s_{\lambda_n} \compose \intracor_{\lambda_n}$};
+\end{tikzpicture}
+\caption{Entry Point -- Correlation Information}
+\label{intra:cor:contrib}
+\end{figure}
+
+\def\opset{\mathcal{O}}
+
+We conclude this section by specifying what it means for intraprocedural
+correlation summaries to be \emph{well-formed}, showing the corresponding
+inference rule in Table~\ref{ch7:wfintra}. Only ordered input-output pairs
+can appear as keys in intraprocedural mappings. Therefore, the well-formedness 
+judgement is parameterized by the set of input variables $\inpset$, 
+%which are the variables having the right to appear as left members of variable pairs, 
+and by the set of output variables $\opset$.
+%which are the variables having the right to 
+%appear as the right members of variable pairs. 
+The former indicate variables that have the right to appear as left members of the
+variable pairs, while the latter indicate variables that have the right to appear as 
+right members of the variable pairs. 
+The correlation map associated to each such input-output pair must be well-typed 
+with respect to the types of the variables as given by the typing environment $\Gamma$ 
+(Definition~\ref{ch4:typenv:def}). 
+The typing judgement for correlation maps was shown in Table~\ref{ch7:wtcormaps}.    
+
+\begin{longtable}{@{}c@{}}
+\caption{Well-Formed Intraprocedural Correlation Summaries \newline}
+\label{ch7:wfintra}
+\endlastfoot
+\toprule
+%
+$\inferrule*[right= WFIntraCor]
+{ \forall (e, o) \mapsto \corv \in \intracor \; \\ \Gamma(e) = \tau_e \\
+\Gamma(o) = \tau_o \\ e \in \inpset \\ o \in \opset \\\\ 
+\Gamma, \inpset \vdash \corv \; : (\tau_e, \tau_o)
+}
+{\Gamma, \inpset, \opset  \vDash \intracor}
+$
+\\
+\bottomrule
+\end{longtable}
+
+
+\subsection{Intraprocedural Correlation Analysis Illustrated}\label{sec:cor:example}
+
+To better illustrate our correlation analysis at an intraprocedural level and to 
+summarize everything that has been presented so far in this chapter, we 
+exemplify the mechanism behind it, step by step, on the predicate \disp{stop\_thread}, 
+discussed in Section~\ref{sec:cintro:example} on page~\pageref{cor:example:body}. 
+We consider the \disp{true} execution 
+scenario, apply our analysis and compare the actual obtained correlation results with 
+the targeted ones depicted in Figure~\ref{cor:example:results}.
+
+\definecolor{indianred}{rgb}{0.90, 0.80, 0.71} %melon
+\definecolor{burg}{rgb}{0.8, 0.36, 0.36}
+\tikzstyle{vertex} = [ellipse, fill=lightgray!50, minimum size =30pt, inner sep = 0pt]
+\tikzstyle{lvertex} = [circle, fill=lightgray!50, minimum size=30pt, inner sep=0pt]
+\tikzstyle{ivertex} = [circle, draw=red, minimum size=30pt, inner sep = 0pt]
+% \tikzstyle{edge} = [draw, semithick, -> ] 
+\tikzstyle{edgeRed} = [draw=red!50!black, dashed, thick, -> ] 
+\begin{figure}[hbt]\centering
+\begin{tabular}{@{}c@{}}
+\toprule
+  \begin{tikzpicture}[->,>=stealth',shorten >=1pt,auto,node distance=1.2cm, semithick,
+    statt/.style={scale=0.7,fill=lightgray!50,draw=none,text=black,ellipse,inner sep=0pt,minimum width=.7cm,minimum height=.7cm},
+    stattedge/.style={draw, semithick, -> }]
+%
+   \node[statt]         (N1)  {\large {1: ta := in.threads}};
+   \node[statt]         (N2) [below=1cm of N1] {\large {2: th := ta[i]}};
+   \node[statt]         (N3) [below left=of N2] {\large {3: $\boldsymbol{switch}$(th) $\boldsymbol{as}$ 
+                             [ $\ver$ti}]};
+   \node[statt]         (N4) [below=1cm of N3]{\large {4: s := Blocked}};
+   \node[statt]         (N5) [below=1cm of N4]{\large {5: ti := \{ti with current\_state = s\}}};
+   \node[statt]         (N6) [below=1cm of N5]{\large {6: th := Some(ti)}};
+   \node[statt]         (N7) [below=1cm of N6]{\large {7: ta := [ta with i=th]}};
+   \node[statt]         (N8) [below=1cm of N7]{\large {8: o := \{in with threads=ta\}}};
+   \node[statt]         (N9) [below=1cm of N8]{9: \lbtrue};
+   \node[statt]         (N10) [right=6cm of N9]{10: \textsf{inval}};
+   %\node[statt]         (N4) [below right=of N2]{\textsf{oob}};
+   %\node[statt]         (N5) [below left=of N3]{\lbtrue};
+   %\node[statt]         (N6) [below right=of N3]{\textsf{None}};  
+   \path (N1) edge[stattedge]       node {\large {\lbtrue}} (N2);
+   \path (N2) edge[stattedge]       node {\large {\lbtrue}} (N3);
+   \path (N3) edge[stattedge]       node {\large {\lbtrue}} (N4);
+   \path (N4) edge[stattedge]       node {\large {\lbtrue}} (N5);
+   \path (N5) edge[stattedge]       node {\large {\lbtrue}} (N6);
+   \path (N6) edge[stattedge]       node {\large {\lbtrue}} (N7);
+   \path (N7) edge[stattedge]       node {\large {\lbtrue}} (N8);
+   \path (N8) edge[stattedge]       node {\large {\lbtrue}} (N9);
+   \path (N2) edge[stattedge,-,out=-50,in=90]       node[pos=0.35] {\large {\lbfalse}} (N10);
+   \path (N7) edge[stattedge,-,out=0,  in=90]       node[pos=0.35] {\large {\lbfalse}} (N10);
+   \path (N3) edge[stattedge,  out=-30,in=90]       node[pos=0.35] {\large {\textsf{None}}} (N10);
+   %\path (N2) edge[stattedge]              node[xshift=-0.8cm,yshift = 0.4cm] {\large{\lbtrue}} (N3);
+   %\path (N2) edge[stattedge]              node {\large {\lbfalse}} (N4);
+   %\path (N3) edge[stattedge]              node[left, anchor=south east] {\large {\textsf{Some}}} (N5);
+   %\path (N3) edge[stattedge]              node[right, anchor=south west] {\large {\textsf{None}}} (N6);
+
+\node(c10)[draw=burg,dotted,scale = 0.7, left=of N10,xshift=1.6cm] {
+\begin{tabular}{c}
+ $ \mathit{Unreachable} $\\
+\end{tabular}
+};
+
+\node(c9) [draw=caribbeangreen, scale = 0.8, left=of N9] {
+\begin{tabular}{c}
+\textsf{(o, o\#)} $\mapsto$ $\{(\pempty,\pempty) \mapsto \equal\}$\\
+\end{tabular}
+};
+
+\end{tikzpicture}\\
+\bottomrule
+\end{tabular}
+\caption{Analysing Predicate \disp{stop_thread} -- Initialisation}
+\label{intra:cor:init}
+\end{figure}
+
+Since a predicate can only exit with one label at a time and we are analysing the
+\disp{true} label, we can map the exit node \disp{inval} to the special case 
+\emph{Unreachable}. We begin by initialising the correlation summary for the exit 
+node corresponding to the \disp{true} exit label. As shown in Figure~\ref{intra:cor:init}, 
+this consists in mapping the pair referring to the \emph{local} value of the \disp{o} 
+variable and the \emph{final} state of \disp{o}, 
+to a correlation map containing a single correlation, namely 
+$(\pempty, \pempty) \mapsto \equal$. This acknowledges that the value of the output \disp{o}
+retrieved to the predicate's callers is the most recent value computed locally. 
+In the following, we denote the final value of 
+\disp{o} by \disp{o#} in order to distinguish it from the local value.
+
+%\pagebreak
+We advance backwards along the control flow graph, reaching node 8. We apply the 
+equation corresponding to a field access as given in Table~\ref{ch7:representation}  
+and obtain the following correlation summary:
+\newcommand{\tsf}[1]{\textsf{#1}}
+%
+\[
+\begin{array}{rll}
+(\tsf{in}, \tsf{o}) &\mapsto 
+           &\left\{ (\pempty, \pempty) \mapsto
+           \left\{\begin{array}{rll}
+           \textrm{\tsf{threads}} &\mapsto &\qmark \\
+           \textrm{\tsf{pid}} &\mapsto &\equal \\
+           \textrm{\tsf{crt\_thread}} &\mapsto &\equal \\
+           \textrm{\tsf{adr\_space}} &\mapsto&\equal
+           \end{array}\right\}\right\} \\\\
+(\tsf{ta},\tsf{o}) & \mapsto &\{(\pempty, .\tsf{threads}) \mapsto \equal\}
+\end{array}.
+\]
+% 
+\noindent We compose it with the correlation summary of its successor node, i.e. the
+exit node corresponding to the \disp{true} exit label, thus detecting the flow
+of \disp{in} to \disp{o#} and of \disp{ta} to \disp{o#} respectively, through 
+the local value \disp{o}. This amounts to:
+\[
+\begin{array}{rll}
+(\textsf{in}, \textsf{o\#}) &\mapsto 
+           &\left\{ (\pempty, \pempty) \mapsto
+           \left\{\begin{array}{rll}
+           \textrm{\tsf{threads}} &\mapsto &\qmark \\
+           \textrm{\tsf{pid}} &\mapsto &\equal \\
+           \textrm{\tsf{crt\_thread}} &\mapsto &\equal \\
+           \textrm{\tsf{adr\_space}} &\mapsto&\equal
+           \end{array}\right\}\right\} \\\\
+(\tsf{ta}, \tsf{o\#}) & \mapsto &\{(\pempty, .\tsf{threads}) \mapsto \equal\}
+\end{array}.
+\]   
+Since node 8 does not have any other successor nodes, the correlation 
+information at its entry point is identical to the one we have just computed.
+
+We advance one step, reaching node 7 and apply the corresponding equation,
+thereby obtaining:
+\[
+\begin{array}{rll}
+(\tsf{ta}, \tsf{ta}) &\mapsto 
+           &\left\{ (\pempty, \pempty) \mapsto \aerel{\equal}{i}{\qmark}
+            \right\} \\\\
+(\tsf{th}, \tsf{ta}) & \mapsto &\{(\pempty, \pcell) \mapsto \equal\}
+\end{array} .
+\]
+We compose it with the correlation summary of node 8, tracking the flow of the 
+\emph{local} value of \disp{ta} to \disp{o#}, through the \emph{new} state of the 
+variable \disp{ta}, after updating its \disp{i}-th element. We also track the flow
+of \disp{th} to \disp{o#}. The correlation map for the $(\tsf{in},\tsf{o\#})$ pair remains 
+unchanged. We thus obtain:
+\[
+\begin{array}{rll}
+(\tsf{in}, \tsf{o\#}) &\mapsto 
+           &\left\{ (\pempty, \pempty) \mapsto
+           \left\{\begin{array}{rll}
+           \textrm{\tsf{threads}} &\mapsto &\qmark \\
+           \textrm{\tsf{pid}} &\mapsto &\equal \\
+           \textrm{\tsf{crt\_thread}} &\mapsto &\equal \\
+           \textrm{\tsf{adr\_space}} &\mapsto&\equal
+           \end{array}\right\}\right\} \\\\
+(\tsf{ta}, \tsf{o\#}) & \mapsto &\{(\pempty, .\tsf{threads}) \mapsto \aerel{\equal}{i}{\qmark}\\\\
+(\tsf{th}, \tsf{o\#}) & \mapsto &\{(\pempty, .\tsf{threads}\pcell) \mapsto \equal\}
+\end{array}.
+\]  
+In order to obtain the correlation information at the entry point of node 7,
+we need to join the computed correlation summary with the correlation summary
+known for the other successor of node 7, namely the exit node 10. Since the 
+latter is \emph{Unreachable}, the identity element for join at the intraprocedural 
+level, it does not affect the correlation summary at the entry point of node 7.
+We proceed similarly for nodes 6, 5, 4, 3 and 2, applying the corresponding data-flow 
+equation for each statement and composing with the intraprocedural correlation 
+summary of the successor node. Since each of these nodes has only one possible
+exit label there are not multiple contributions that need to be joined. At the 
+entry point of node 6, for example we obtain the following summary:
+\[
+\begin{array}{rll}
+%% (\tsf{in},\tsf{o\#}) &\mapsto 
+%%            &\left\{ (\pempty, \pempty) \mapsto
+%%            \left\{\begin{array}{rll}
+%%            \textrm{\tsf{threads}} &\mapsto &\qmark \\
+%%            \textrm{\tsf{pid}} &\mapsto &\equal \\
+%%            \textrm{\tsf{crt\_thread}} &\mapsto &\equal \\
+%%            \textrm{\tsf{adr\_space}} &\mapsto&\equal
+%%            \end{array}\right\}\right\} \\\\
+(\tsf{ta}, \tsf{o\#}) & \mapsto &\{(\pempty, .\textrm{\tsf{threads}}) \mapsto \aerel{\equal}{i}{\qmark}\\\\
+(\tsf{ti}, \tsf{o\#}) & \mapsto &\{(\pempty, .\textrm{\tsf{threads}}\pcell@\textrm{\tsf{Some.t}}) \mapsto \equal\}\\
+\end{array}
+\]
+\[
+\begin{array}{rll}
+(\tsf{in},\tsf{o\#}) &\mapsto 
+           &\left\{ (\pempty, \pempty) \mapsto
+           \left\{\begin{array}{rll}
+           \textrm{\tsf{threads}} &\mapsto &\qmark \\
+           \textrm{\tsf{pid}} &\mapsto &\equal \\
+           \textrm{\tsf{crt\_thread}} &\mapsto &\equal \\
+           \textrm{\tsf{adr\_space}} &\mapsto&\equal
+           \end{array}\right\}\right\} \\\\
+%% (\tsf{ta}, \tsf{o\#}) & \mapsto &\{(\pempty, .\textrm{\tsf{threads}}) \mapsto \aerel{\equal}{i}{\qmark}\\\\
+%% (\tsf{ti}, \tsf{o\#}) & \mapsto &\{(\pempty, .\textrm{\tsf{threads}}\pcell@\textrm{\tsf{Some.t}}) \mapsto \equal\}\\\\
+\end{array}.
+\]
+We skip some steps and obtain the following correlation summary at the entry
+point of node 2:
+
+\begin{center}%
+  \scalebox{0.9}{%
+    \parbox{\linewidth}{%
+      \[
+      \begin{array}{rll}
+        (\tsf{in},\tsf{o\#}) &\mapsto 
+        &\left\{ (\pempty, \pempty) \mapsto
+          \left\{\begin{array}{rll}
+                   \textrm{\tsf{threads}} &\mapsto &\qmark \\
+                   \textrm{\tsf{pid}} &\mapsto &\equal \\
+                   \textrm{\tsf{crt\_thread}} &\mapsto &\equal \\
+                   \textrm{\tsf{adr\_space}} &\mapsto&\equal
+                 \end{array}\right\}\right\} \\\\
+        (\tsf{ta}, \tsf{o\#}) & \mapsto 
+        &\left\{\begin{array}{rll}
+                  (\pempty, .\textrm{\tsf{threads}}) &\mapsto &\aerel{\equal}{i}{\qmark}\\
+                  (\pcell\tsf{@Some.t}, \tsf{.threads}\pcell\tsf{@Some.t}) &\mapsto
+                                                              &\left\{\begin{array}{rll}
+                                                                        \tsf{id} &\mapsto &\equal\\
+                                                                        \tsf{current\_state}&\mapsto&\qmark\\
+                                                                        \tsf{stack} &\mapsto&\equal\\
+                                                                      \end{array}\right\}
+                \end{array}\right\}
+              % (\pempty, .\textrm{\tsf{threads}}) \mapsto \aerel{\equal}{i}{\qmark}\\\\
+      \end{array}.
+      \]%
+    }%
+  }%
+\end{center}
+
+Finally, we reach node 1, where we apply the data-flow equation corresponding to a
+field access and compose the obtained information with the correlation summary 
+computed at the entry of node 2. We obtain:
+
+\begin{center}
+  \scalebox{0.85}{%
+    \parbox{\linewidth}{%
+      \[
+ \hspace{-0.7cm}     \begin{array}{rll}
+        (\tsf{in},\tsf{o\#}) &\mapsto 
+        &\left\{ 
+          \begin{array}{rll}
+            (\pempty, \pempty) &\mapsto
+            &\left\{\begin{array}{rll}
+                      \textrm{\tsf{threads}} &\mapsto &\qmark \\
+                      \textrm{\tsf{pid}} &\mapsto &\equal \\
+                      \textrm{\tsf{crt\_thread}} &\mapsto &\equal \\
+                      \textrm{\tsf{adr\_space}} &\mapsto&\equal
+                    \end{array}\right\} \\\\
+            (.\textrm{\tsf{threads}}, .\textrm{\tsf{threads}}) &\mapsto &\aerel{\equal}{i}{\qmark}\\\\
+            (.\textrm{\tsf{threads}}\pcell\tsf{@Some.t}, \tsf{.threads}\pcell\tsf{@Some.t}) &\mapsto
+            &\left\{\begin{array}{rll}
+                      \tsf{id} &\mapsto &\equal\\
+                      \tsf{current\_state}&\mapsto&\qmark\\
+                      \tsf{stack} &\mapsto&\equal\\
+                    \end{array}\right\}\\\\
+          \end{array}\right\}
+      \end{array}
+      \]%
+    }%
+  }%
+\end{center}
+
+Since the node 1 has only one successor node, this correlation summary represents
+the correlation information at the entry point of node 1, i.e. there is no other
+correlation summary to join it with. This contains a single pair of variables,
+(\tsf{in}, \tsf{o\#}) and their associated correlation map. Since the pair is
+an input-output pair of the \disp{stop_thread} predicate, we do not need to 
+filter anything out. This constitutes the final correlation summary for the
+analysed predicate on the \disp{true} exit label. These results are identical to 
+the ones we had depicted as our targeted results in Figure~\ref{cor:example:results}. 
+
+For the \disp{inval} exit label, the corresponding correlation summary is 
+\emph{NoCorrelation}. This example can be
+tried on the web page\footnote{Correlation Analysis Web Page: \url{http://www.ajl-demo.fr/2016/}} 
+dedicated to our correlation analysis. Other examples are provided and explained
+there as well. Additionally, users can devise and test their own examples. 
+
+
+\section{Experimental evaluation on a verified micro-kernel}
+
+This section describes an experimental evaluation of the dependency
+and correlation analyses on the formal verification of a
+micro-kernel. 
+{\pcore}~\cite{lescuyer15} is one of the two microkernels entirely 
+specified and developed in {\slang} at {\prun}. Unlike Minix 3.1 by which 
+it was inspired, {\pcore} targets 
+ARM architectures and uses a Memory Management Unit for managing virtual 
+address spaces. It is a general-purpose microkernel supporting creation 
+and deletion of processes, execution of programs, synchronous message-passing 
+inter-process communication with timeouts, asynchronous notifications, and 
+process-to-process data copies. %ProvenCore has a shared memory system. 
+
+The main property ensured by {\pcore} is the isolation property. Isolation 
+implies two complementary properties, namely integrity and 
+confidentiality. Integrity refers to ensuring that the resources of a process
+(its code, data, and registers) cannot be altered or interfered with by other
+processes, unless explicitly authorized by the process. Confidentiality
+refers to ensuring that the resources of a process cannot be observed
+by other processes, unless explicitly authorized by the process. In other words,
+integrity ensures that until a process decides to communicate with other 
+processes, it will execute as if it were alone on the system. 
+Confidentiality ensures that as long as a process does not send its secrets to 
+other processes, it can change its secrets without affecting other processes.    
+
+The isolation property has been formally proven using the interactive proof
+assistant of {\ptools}. The proofs also establish functional specifications
+verified by {\pcore}~\cite{lescuyer15}.
+
+The proof for the isolation property is based on multiple refinements between 
+successive models, from the most abstract, on which the \emph{isolation} 
+property is defined and proven, to the most concrete, i.e. the actual model 
+used for code generation. These successive models are shown in 
+Figure~\ref{fig:pcore:layers}.
+ 
+\begin{figure}[hbtp]\centering
+\begin{tikzpicture}
+  [node distance=.8cm,
+  start chain=going below,]
+     \node[punktchain,fill=caribbeangreen!20, join] (spm)      {SPM};
+     \node[punktchain,fill=caribbeangreen!40, join] (rsm)      {RSM};
+     \node[punktchain,fill=caribbeangreen!60, join] (fsp)      {FSP};
+     \node[punktchain,fill=caribbeangreen!80, join] (tds)      {TDS};
+  \end{tikzpicture}
+\caption{{\pcore} -- Abstract Layers}
+\label{fig:pcore:layers}
+\end{figure}
+
+Using multiple abstract models, each more abstract than its predecessor, enables
+a degree of separation of concerns in the overall proof. The lower-level proofs
+include a plethora of low-level properties and invariants, and are devoid of 
+functional properties, while the higher-level models focus on functional 
+specifications. Each layer of abstraction removes details that are not relevant
+for it anymore and enables changing the representation of the transition system
+in order to internalize in the structure of its states some invariants of the 
+preceding level.
+
+The \emph{Security Policy Model} (SPM) is the most abstract level and the one
+at which the isolation property is expressed and proven. The kernel is modeled
+as an abstract controller and the various processes are modeled as machines, 
+each possessing its own independent physical resources.
+
+The \emph{Refined Security Model} (RSM) is an intermediate layer, meant to 
+bridge the wide gap between its successor, the SPM and its predecessor, the FSP. 
+In the RSM, the machines share
+the same physical resources, which are managed by the controller.
+
+The \emph{Functional Specifications} (FSP) layer is a model roughly equivalent
+to its predecessor -- the TDS -- in functionality, but unlike the latter it uses
+data structures and algorithms that facilitate reasoning and formal proof. Its
+main functional difference with the TDS is that it eliminates MMU address
+translation, using instead a linear view of the RAM, similarly to the RSM.
+
+The \emph{Target of Evaluation Design} (TDS) is the model that is used to generate
+the sequential {\slang} code of the kernel, as well as the models for hardware
+components that are not translated into C code, but which are necessary for
+completing the TDS specifications.
+
+For each refinement, a \emph{view}, i.e. a function from the concrete model
+state to the abstract model state, is defined. Then, a correspondence or
+commutation lemma is proven, establishing that transitions from $c$ to $c'$
+in the concrete model entail transitions from the view of $c$ to the view of
+$c'$ in the abstract model. Since the views are not total functions, this
+requires showing that the views actually exist. In this manner, the higher
+levels are attained, reaching models that are simpler and more flexible than
+the TDS but that still simulate all its possible
+behaviours~\cite{lescuyer15}.
+
+This refinement chain also facilitates reusing parts of one proof effort in 
+other proofs.
+
+\subsection{Obtained Dependency and Correlation Results}\label{ch9:tstats} 
+
+Our dependency and correlation analyses must be evaluated by two different
+criteria, namely execution time and precision. In this section we are discussing the
+former. The latter will be discussed in the following section.
+
+Both analyses target complex transition systems in general, and operating systems
+in particular. The ideas behind them stemmed directly from the verification effort
+entailed by {\pcore}. Unlike other static analyses, which are frequently employed 
+in a fully automatic setting, our static analyses are supposed to be used as 
+companion tools in the middle of interactive program verification. They are supposed
+to be applied often, as steps during interactive proofs. For instance, the dependency
+and correlation summaries for different predicates might be needed for verifying a 
+single property. These in turn may imply a whole-model analysis. Therefore, the 
+dependency and correlation analyses must perform quickly in order to answer effectively
+``questions'' asked frequently. 
+
+Our analyses have currently been applied to the functional specification of
+{\pcore}~\cite{lescuyer15}. More specifically, they have been
+applied to the RSM, FSP, and TDS layers shown in
+Figure~\ref{fig:pcore:layers}. Each of these layers is characterized by a global
+state with numerous fields, and different transitions, i.e. supported commands
+or system calls such as \emph{fork, exec, exit}. Each supported command receives
+as an input the global state before the transition and returns the state of the
+system after the transition.
+
+For instance, in RSM the global states are much simpler compared to the ones in the layers
+below it, i.e. FSP and TDS. They are
+modeled by a structure with 6 fields, out of which 3 are modeled by arrays and 2
+by structures. The RSM counterpart of the optional table of processes is a store
+of machines, which are themselves the counterpart of FSP processes. Machines are
+structures with 7 fields that refer to registers, information regarding 
+inter-process communication or permissions, and code and data segments. Out of the 
+7 fields, 2 are modeled by variants, 2 by associative arrays and other 2 by
+structures. 
+
+The global state of the FSP layer is modeled by a structure type with
+15 fields, including fields that concern process management (for memory allocations,
+information about processes), interrupt handling (registered handlers, active handlers),
+scheduling (priority queues, currently running process, process to run next), time
+management or code data. Among these 15 fields, 9 fields are ``composite'' themselves, being  
+modeled by structures, variants or associative arrays. For instance, among the fields 
+concerning process management, there is a table of optional processes. The processes 
+themselves are modeled by a structure type having 26 fields. Out of the total of 26 
+fields, 11 are modeled by algebraic data structures or associative arrays too. 
+
+The FSP global state is characterized by over 70 invariants. %There are ... possible 
+%transitions. 
+ 
+%The state is characterized by ... invariants. There are ... possible transitions.
+
+In TDS, the global state is a structure having 33 fields, among which 23 are 
+``composite'' as well. The processes are structures having 29 fields, among which
+14 are modeled by associative arrays or algebraic data types. The global state
+is characterized by approximately 140 invariants.
+
+In Table~\ref{res:fspstate} we give an overview of the global states for each
+analysed layer. The first column shows the total number of fields. The second
+column indicates the number of fields that are modeled by associative arrays.
+Between parentheses we indicate the number of arrays having ``composite'' elements
+and elements of atomic or implicit types, respectively. For example, the FSP global
+state has 6 fields that are modeled by associative arrays and all 6 of them have
+``composite'' elements. In columns 3, 4, and 5 we show the number of fields that
+are modeled by structures, variants and atomic or implicit types, respectively.  
+
+
+\begin{table}[hbtp]
+\caption{{\pcore} Abstract Layers -- Global State Type}
+\centering
+\begin{tabular}{cccccc} \toprule
+    {}       & {Global State} &{Arrays}          & {Structures} & {Variants}     & {Atomic/Implicit}  
+    \\ \midrule
+    RSM      & 6 fields       & 2 fields (1/1)    & 2 fields     &  0 fields      & 2 fields        \\
+    FSP      & 15 fields      & 6 fields (6/0)    & 0 fields     &  3 fields      & 6 fields         \\ 
+    TDS      & 33 fields      & 14 fields (14/0)  & 3 fields     &  6 fields      & 10 fields        \\\bottomrule\\
+\end{tabular}
+\label{res:fspstate}
+\end{table}
+
+The global state of each layer contains an array or store of processes or machines.
+In Table~\ref{res:fspproc} we give an overview of the process or machine type for 
+each analysed layer. The table has the same structure as the one described 
+previously for the global state types.
+
+
+\begin{table}[hbtp]
+\caption{{\pcore} Abstract Layers -- Process/Machine Type}
+\centering
+\begin{tabular}{cccccc} \toprule
+    {}       & {Process/Machine} &{Arrays}        & {Structures} & {Variants}    & {Atomic/Implicit}  
+    \\ \midrule
+    RSM      & 7 fields          & 2 fields (1/1)   & 2 fields     & 2 fields      & 1 field          \\
+    FSP      & 26 fields         & 2 fields (0/2)   & 5 fields     & 3 fields      & 16 fields        \\ 
+    TDS      & 29 fields         & 1 field  (1/0)   & 8 fields     & 5 fields      & 15 fields         \\ \bottomrule\\
+\end{tabular}
+\label{res:fspproc}
+\end{table}
+
+We have applied our dependency and correlation analyses on the RSM, FSP, and TDS 
+layers, thus conducting medium-sized experiments. An overview of the characteristics 
+for the 3 {\pcore} layers is included in Table~\ref{res:statsdep1}, 
+Table~\ref{res:statsdef1}, and Table~\ref{res:statscor1}. In each of these, the first 
+column shows the total number of predicates of the analysed layers. In parentheses, we 
+indicate the number of predicates that only read information and return a 
+Boolean-like exit label, i.e. logical 
+properties, as well as the number of implicit predicates for which a 
+pessimistic assumption is made. The second column shows the total number 
+of lines of code (LoC) for each, including comments and type definitions. 
+The next three columns indicate the number of LoC 
+corresponding to predicates, type definitions and comments, respectively.
+
+We have run the analyses 101 times in a loop on a Lenovo laptop with a Quad-Core  
+Intel Core I7-5500U processor and 8 GB RAM. The system runs Xubuntu Gnu/Linux 64 bit, 
+Release 15.10 with OCaml 4.01. Before the first run of each loop the operating 
+system's cache was dropped using the following command:
+
+\begin{center}\texttt{echo 3 > /proc/sys/vm/drop\_caches}\end{center}
+
+The time measured includes only the execution of the analysis algorithms. It
+excludes the time required to load the input files, as well as the time spent
+printing the results.
+
+% The maximum and average times, denoted by Max* and Avg*, respectively in the 
+% tables exclude the first run. 
+% When running the analysis during interactive program proving, the analyser 
+% executable and the program to be analysed should both be already loaded in memory, 
+% at the beginning of the interactive session, hence the exclusion of the first run 
+% in these figures.
+% The minimum times and other percentiles shown
+% in Table~\ref{res:statsdep2}~\ref{res:statsdef2},~and~\ref{res:statscor2} were
+% computed including the first run.
+% The first run shown in the first column of 
+% Table~\ref{res:statsdep2},~\ref{res:statsdef2},~and~\ref{res:statscor2} was
+% always slower than all other runs.
+
+On average, our fully context-insensitive dependency analysis as presented in
+Chapter~\ref{chapter5} computed the dependency summaries for 633 RSM/FSP predicates in
+0.656 seconds. For the TDS predicates, the dependency summaries were computed in
+0.699 seconds on average. These results are indicated in Table~\ref{res:statsdep1}.
+
+\begin{table}[hbtp]
+\caption{Abstract Layers -- Evaluation Data and Dependency \mbox{Analysis} Timing}
+\centering
+\begin{tabular}{@{}cc@{\hspace{0.5\tabcolsep}}ccccc@{}} \toprule
+    {}      & {Predicates}  & {Total LoC} & {Code} & {Types} & {Comments} & {Dependency Avg}  
+                                                                                    \\ \midrule
+    RSM/FSP & 633 (235/65)  & 9853        & 8402   & 596     & 855        & 0.656 s \\ \midrule
+    TDS     & 780 (231/155) & 14000       & 11306  & 588     & 2106       & 0.699 s \\ \bottomrule\\
+\end{tabular}
+\label{res:statsdep1}
+\end{table}
+
+In Table~\ref{res:statsdep2} we indicate the minimum and maximum execution times
+for the context-insensitive dependency analysis. Various percentiles
+are indicated as well. 
+
+\begin{table}[hbtp]
+\caption[Abstract Layers -- Detailed Dependency Analysis Timing]
+{Abstract Layers -- Detailed Dependency Analysis Timing (in seconds)}
+\centering
+\begin{tabular}{cccccccc} \toprule
+    {}  & {Min} & {10\%ile} & {50\%ile} & {90\%ile} & {Max} & {Avg} \\ \midrule
+RSM/FSP & 0.650 & 0.651     & 0.652     & 0.658     & 0.730 & 0.656 \\ \midrule
+TDS     & 0.690 & 0.691     & 0.693     & 0.718     & 0.798 & 0.699 \\ \bottomrule\\
+\end{tabular}
+\label{res:statsdep2}
+\end{table}
+
+The average execution time of our dependency 
+analysis with the deferred accesses extension is shown in Table~\ref{res:statsdef1},
+in the last column denoted by Avg. On average, our dependency analysis extended with
+deferred accesses, as presented in Chapter~\ref{chapter6}, computed the dependency 
+summaries with context-sensitive leaves for 633 predicates in
+0.779 seconds. For the TDS predicates, the dependency information was computed in
+0.919 seconds on average. These results are indicated in Table~\ref{res:statsdef1}.
+
+Therefore, using our relaxed form of context-sensitivity led to an increase of 
+\mbox{10-20\%} in execution time on the used benchmarks.  
+
+\begin{table}[hbtp]
+\caption{Abstract Layers -- Evaluation Data and Deferred Dependency Analysis Timing}
+\centering
+\begin{tabular}{ccccccc} \toprule
+    {}      & {Predicates}  & {Total LoC} & {Code} & {Types} & {Comments} & {Deferred Avg}  
+                                                                                    \\ \midrule
+    RSM/FSP & 633 (235/65)  & 9853        & 8402   & 596     & 855        & 0.779 s \\ \midrule
+    TDS     & 780 (231/155) & 14000       & 11306  & 588     & 2106       & 0.919 s \\ \bottomrule\\
+\end{tabular}
+\label{res:statsdef1}
+\end{table}
+
+The detailed timing information for the dependency analysis using deferred accesses
+is shown in Table~\ref{res:statsdef2}.
+
+\begin{table}[hbtp]
+\caption[Abstract Layers -- Detailed Deferred Dependency Analysis Timing]
+{Abstract Layers -- Detailed Deferred Dependency Analysis Timing (in seconds)}
+\centering
+\begin{tabular}{cccccccc} \toprule
+    {}  & {Min} & {10\%ile} & {50\%ile} & {90\%ile} & {Max} & {Avg} \\ \midrule
+RSM/FSP & 0.776 & 0.777     & 0.779     & 0.781     & 0.785 & 0.779 \\ \midrule
+TDS     & 0.904 & 0.905     & 0.908     & 0.975     & 0.999 & 0.919 \\ \bottomrule\\
+\end{tabular}
+\label{res:statsdef2}
+\end{table}
+
+The average execution time of our correlation
+analysis is shown in Table~\ref{res:statscor1}, in the last column denoted by
+Avg. The correlation summaries for the RSM/FSP predicates are computed in
+0.426 seconds on average. For the TDS predicates, the correlation summaries are
+computed in 0.496 seconds on average.
+Unlike the dependency analysis which computes information for code as well as
+specifications, i.e. logical properties, in a unified manner, the correlation analysis
+only computes information for predicates that actually modify data structures.
+This partly explains the time difference between the two analyses. We also remark that
+the possible-constructors analysis is performed simultaneously with the dependency 
+analysis and this contributes to the difference between the execution times as well. 
+
+\begin{table}[hbtp]
+\caption{Abstract Layers -- Evaluation Data and Correlation Analysis Timing}
+\centering
+\begin{tabular}{@{}cc@{\hspace{0.5\tabcolsep}}ccccc@{}} \toprule
+    {}      & {Predicates}  & {Total LoC} & {Code} & {Types} & {Comments} & {Correlation Avg}  
+                                                                                    \\ \midrule
+    RSM/FSP & 633 (235/65)  & 9853        & 8402   & 596     & 855        & 0.426 s \\ \midrule
+    TDS     & 780 (231/155) & 14000       & 11306  & 588     & 2106       & 0.496 s \\ \bottomrule\\
+\end{tabular}
+\label{res:statscor1}
+\end{table}
+
+The detailed timing information for our correlation analysis is shown in Table~\ref{res:statscor2}.
+
+\begin{table}[hbtp]
+\caption[Abstract Layers -- Detailed Correlation Analysis Timing]
+{Abstract Layers -- Detailed Correlation Analysis Timing (in seconds)}
+\centering
+\begin{tabular}{cccccccc} \toprule
+    {}  & {Min} & {10\%ile} & {50\%ile} & {90\%ile} & {Max} & {Avg} \\ \midrule
+RSM/FSP & 0.424 & 0.425     & 0.425     & 0.427     & 0.432 & 0.426 \\ \midrule
+TDS     & 0.492 & 0.493     & 0.494     & 0.498     & 0.540 & 0.496 \\ \bottomrule\\
+\end{tabular}
+\label{res:statscor2}
+\end{table}
+
+Generally, static analysis has been considered prohibitive in terms of execution
+time and it has been avoided in an interactive context and used predominantly
+in an automatic context. Though currently applied only on medium-sized models, 
+the execution times of both of our analyses are short enough to expect reasonable 
+execution times for larger models as well\footnote{It is noteworthy to remark that
+the interprocedural dependency and correlation summaries will not necessarily be
+computed on-the-fly, during the interactive proof. They rather will be computed
+as part of the build. In contrast, the treatment of a query, once all interprocedural 
+information has been computed, will be executed in real-time. Nevertheless, it is desirable
+to have fast analyses, allowing developers to iterate frequently.}.  
+
+% It is noteworthy to remark that the execution time for both the dependency and the
+% correlation analysis is consistent across all runs and varies only by a few 
+% miliseconds.
+
+\subsection{Precision of our Dependency and Correlation Summaries}~\label{ch9:res:precision}
+
+In this section we try to illustrate the sort of dependency and correlation
+summaries that are computed by our analyses. We conclude the section with a
+brief discussion regarding the precision of our obtained results. Assessing
+and discussing precision as a metric for usefulness is hard in isolation and
+can only be effectively done in relation to actual applications.
+% in the absence of actual applications.
+However, we present some statistics in order to give some
+insight about the proportion of the non-trivial information computed. For our
+current discussion we focus on the results obtained on the RSM/FSP and the TDS 
+layers.
+%which included 633 predicates.
+
+One of the analysed predicates of the RSM/FSP layers is \disp{do_auth}. This
+predicate is a system call clearing or granting an authorization to some
+process to read from or write to some memory range of the current process. It
+receives a global state \disp{in} and an index \disp{i} as inputs and
+produces, on the \disp{true} label, the new global state \disp{out}, after
+modifying the permission for the \disp{i}-th process in the process store.
+
+The code of {\disp{do_auth}} performs various system-wide checks before 
+registering the permission change, and is therefore not trivial, although its 
+effect is quite limited. Indeed, the correlation results computed by our analysis 
+for the \disp{true} label of this predicate are shown below. 
+
+\phantom{a}
+
+\def\mto{\mapsto}
+\definecolor{pgreen}{rgb}{0.00, 0.42, 0.24}
+\setlength{\jot}{1.5pt}
+$\textrm{\disp{true}}: (\textrm{\disp{in}}, \textrm{\disp{out}}) \mto [$\\[\jot]
+\begin{minipage}{.2\textwidth}
+$
+%\textrm{\disp{true}}: (\textrm{\disp{in}}, \textrm{\disp{out}}) \mto [\\[\jot]
+  \begin{array}{r*{9}l}
+    (\pempty, \pempty) 
+    &\mto\{ &\textrm{\disp{...}} &\mto 
+    &\equal \phantom{\}} & &&&
+    & \left.\hspace{-3.7cm}\color{pgreen}\right\}\textrm{\textcolor{pgreen}{\textrm{\small 14 fields}}} \\[\jot]  
+     
+    & &\textrm{\disp{procs}} &\mto &\qmark \,\,\,\} & &&&&  \\[\jot]   
+
+    (\textrm{\disp{.procs}}, \textrm{\disp{.procs}}) 
+    &\mto\langle &\equal\triangleright \textrm{i} &: 
+    &[\textrm{ \disp{None}} &\mto &\equal&&\\[\jot]
+ 
+    & & & 
+    &\textrm{\phantom{ [}\disp{Some}} &\mto &\{\textrm{\disp{v}}\mto\{
+    &\textrm{\disp{...}}&\mto&\equal\phantom{\}} 
+    \left.\hspace{-0.25cm}\color{pgreen}\right\}\textrm{\textcolor{pgreen}{\textrm{\small 25}}}\\[\jot]
+    
+    &&&
+    &&&
+    &&&\hspace{0.75cm}\textrm{\textcolor{pgreen}{\textrm{\small fields}}}\\[\jot]
+
+    & & & 
+    & & &
+    &\textrm{\disp{mem_auth}}&\mto&\qmark\}\}]\rangle]\\[\jot]
+
+  \end{array}
+$
+\end{minipage}%
+%
+
+\phantom{a}
+
+\noindent The analysis detects 
+that out of the 15 fields of \disp{out}, only the \disp{i}-th element of the 
+\disp{procs} field is changed. Furthermore, it detects that if this element is an 
+active process, i.e. built with the \disp{Some} constructor, only the \disp{mem_auth} 
+field is modified out of the total of 26 fields. Everything else is copied from the input 
+state \disp{in}.
+
+Combined with dependency summaries for logical properties, this correlation summary 
+would allow us to infer the preservation of all invariants that are not concerned 
+with the memory permissions. All but one out of the specified properties for the global
+state fall into this category. This is the \emph{relevant memory permissions} property:
+
+\phantom{a}
+
+\indent\indent\indent\indent \disp{predicate proc_mem_auth_ok(proc proc) -> [true | false]}
+ 
+\phantom{a}
+
+\noindent which verifies a fundamental property that has to hold for all processes in the 
+process store of {\disp{proc}} and states that a process has permissions covering a valid 
+range of memory addresses and referring only to existing processes.  
+After executing \disp{do_auth}, this property is threatened and 
+needs to be verified only for the \disp{i}-th process of the store. It is preserved for 
+all others.
+   
+The dependency results computed by our analysis for this predicate are
+shown below. The analysis detects that for each of the possible
+execution scenarios, the outcome depends only on 2 out of the 26
+fields, namely the stackframe and the memory permissions. The
+dependency on the {\disp{stackframe}} is confined to only one of the 3
+fields: the data and stack segment. The memory permissions are given
+by a variant with 3 constructors, denoting reading and writing
+permissions or the absence of any permission. Furthermore, besides
+pinning down the outcome's dependency on 2 out of the 26 fields of the
+{\disp{proc}} structure, the analysis also detects that the absence
+of any memory permission, indicated by the constructor {\disp{NONE}}
+of the {\disp{mem_auth}} variant, is \impossible{} for the
+\textsf{false} execution scenario. In other words, unused permissions
+cannot threaten the property \disp{proc_mem_auth_ok}.
+\begin{center}
+\resizebox{.5\textheight}{!}{%
+$
+\setlength\arraycolsep{2pt}
+\begin{array}{llllllllll}
+%false label
+& \textrm{\bf false} &\to &\{\mathit{proc} &\to \{&\mathit{mem\_auth} 
+&\to [&\mathit{READ} &\to \{&\mathit{base} \to \everything;\; \mathit{len} \to \everything\} \\
+
+&          &       &             &           &&                                
+&\mathit{WRITE} &\to \{&\mathit{base} \to \everything; \; \mathit{len} \to \everything\}  \\
+
+&          &       &             &           &&                                
+&\cellcolor{lightgray!30}\mathit{NONE} & \to &\mmygbox{\impossible}] \\
+
+&          &       &             &           &\mathit{stackframe} 
+&\to \{& \mathit{ds} &\to & \everything \}\}\} \\
+
+%true label
+&\textrm{\bf true} &\to & \{proc &\to \{&\mathit{mem\_auth} 
+&\to [&\mathit{READ} &\to \{&\mathit{base} \to \everything;\; \mathit{len} \to \everything\} \\
+
+&          &       &             &           &&                                
+&\mathit{WRITE} &\to \{&\mathit{base} \to \everything; \; \mathit{len} \to \everything\} \\
+&          &       &             &           &&                                
+&\cellcolor{lightgray!30}\mathit{NONE} & \to & \mmygbox{\nothing}] \\
+
+&          &       &             &           &\mathit{stackframe} 
+&\to \{& \mathit{ds} &\to & \everything \}\}\} 
+\end{array}
+$}
+\end{center}
+
+The \emph{relevant memory permissions} property is thus only threatened by 
+transitions that add memory permissions or change a process' virtual space 
+layout. Only 2 transitions out of the 25 belong to this category: 
+{\disp{exec}} which resets the process' segments, and {\disp{do_auth}} 
+which adds permissions and was discussed above. In particular, transitions 
+deleting memory permissions 
+do not impact the property since the absence of permissions, as shown by the 
+dependency of the constructor {\disp{NONE}} for the \textsf{false} label, is 
+an impossible case when the property does not hold. This is one of the practical 
+advantages of tracking constructor possibilities simultaneously and of extending
+the correlation analysis to track the evolution of constructors as well. 
+   
+In the following, we briefly discuss our dependency summaries obtained on the 
+RSM/FSP layer in terms of precision. 
+An overview is given in Table~\ref{res:statsprecisiondep}. The first column 
+refers to the fully context-insensitive dependency analysis as presented in
+Chapter~\ref{chapter5}. The second column refers to the dependency analysis
+extended with deferred access maps as presented in Chapter~\ref{chapter6}.
+The first line indicates the total number of predicates, both implicit and 
+explicit. The second line indicates the total number of implicit predicates
+for which we are obliged to make a pessimistic assumption and to consider
+everything needed, given that their implementation is hidden. The third line
+indicates the number of explicit predicates without inputs for which empty 
+summaries are retrieved. Our dependency analysis detects the input subset that
+is read in order to obtain the output. In the case of predicates without inputs
+this subset is empty. Most explicit predicates without inputs correspond to 
+wrapper predicates around calls to constructors that take no arguments. Since 
+{\asmil} is an intermediate language, such predicates are automatically generated
+and do not necessarily correspond to programmer written predicates.
+The next line, line 4, indicates the number of predicates for which we obtain
+non-trivial information. By non-trivial information, we mean dependency summaries 
+in which the dependency associated to at least one input variable is different
+than $\top$, i.e. \textsf{Everything}, the element conveying no information. 
+With the context-insensitive dependency analysis, we obtain non-trivial results
+for 344 predicates. With the extended dependency we obtain non-trivial results
+for 403 predicates.  
+
+\newcommand{\tabitem}{~~\llap{\textbullet}~~}
+\newcommand{\tabitemindent}{}
+
+\begin{table}[hbtp]
+\caption{RSM/FSP Layers -- Evaluation Data and Dependency \mbox{Summaries}}
+\centering
+\begin{tabular}{lcc} \toprule
+    {}         & {Context-Insensitive} & {Deferred} 
+                                                                          \\ \midrule
+Number of Total Predicates       & 633                & 633                   \\ \midrule
+Number of Implicit Predicates  & 65                 & 65                    \\ \toprule
+No Inputs                    & 26                 & 26                    \\\midrule
+Number of Non-Trivial Results  & 344                & 403                   \\\midrule
+Number of Trivial-Results        & 289                & 230        \\%\midrule
+  \tabitem Implicit & \tabitemindent 65  & \tabitemindent 65 \\
+  \tabitem No Inputs & \tabitemindent 26  & \tabitemindent 26 \\
+  \tabitem Other & \tabitemindent 198 & \tabitemindent 139 \\\midrule
+Predicates with Atomic Inputs & 31           & 31                     \\\midrule
+Completely Read                    & 71           & 71                     \\\midrule
+Overapproximation                  & 96           & 37                     \\ \bottomrule\\
+\end{tabular}
+\label{res:statsprecisiondep}
+\end{table}
+
+The following line --- line 5 --- indicates the total number of predicates for
+which trivial results are obtained. These include the results for implicit
+predicates, as well as those for predicates without inputs. For the simple
+version of the dependency analysis we obtain 198 trivial results, excluding
+implicit predicates and predicates without inputs. For the extended
+dependency analysis we obtain trivial results for 139 predicates, excluding
+implicit predicates and predicates without inputs. Therefore, for the first
+version of the analysis, 49 trivial summaries are a consequence of
+context-insensitivity. The next 3 lines refer to the 139 predicates for which
+trivial results are obtained with both versions of the dependency analysis:
+31 of them correspond to predicates manipulating only inputs of atomic types,
+such as \texttt{int}. Such inputs are completely read and thus, the trivial
+results are justified and do not correspond to an over-approximation.  Other
+71 correspond to predicates making complex manipulations and actually reading
+all of their input, such as well-formedness checks. The last 37 trivial
+results are a consequence of over-approximations made by our analysis. The
+majority of them correspond to complex predicates, making multiple calls to
+other complex predicates and relying heavily on calls to implicit predicates,
+for which conservative assumptions are made. For the simple dependency analysis,
+other 46 trivial results are a result of over-approximations related to 
+context-insensitivity.
+   
+An overview of the dependency results for the TDS layer is given in 
+Table~\ref{res:statsTDSprecisiondep}. The table follows the same structure as
+described for Table~\ref{res:statsprecisiondep}.
+%% The dependency summaries obtained with the extended analysis are 
+%% considerably more detailed. Just to give an intuition of the difference 
+%% between the two, the file containing the results computed with the 
+%% context-insensitive dependency analysis contains 7333 lines and its size is
+%% 269.4 ko, while the file containing the results computed with the extended
+%% analysis contains 11547 lines and its size is 536.5 ko.
+
+\begin{table}[!h]
+\caption{TDS Layer -- Evaluation Data and Dependency \mbox{Summaries}}
+\centering
+\begin{tabular}{lcc} \toprule
+    {}         & {Context-Insensitive} & {Deferred} 
+                                                                          \\ \midrule
+Number of Total Predicates       & 780                & 780                   \\ \midrule
+Number of Implicit Predicates  & 155                 & 155                    \\ \toprule
+No Inputs                    & 15                 & 15                    \\\midrule
+Number of Non-Trivial Results  & 386                & 458                   \\\midrule
+Number of Trivial-Results        & 394                & 322        \\%\midrule
+  \tabitem Implicit & \tabitemindent 155  & \tabitemindent 155 \\
+  \tabitem No Inputs & \tabitemindent 15   & \tabitemindent 15  \\
+  \tabitem Other & \tabitemindent 224 & \tabitemindent 152  \\\midrule
+Predicates with Atomic Inputs & 49           & 49                      \\\midrule
+Completely Read                    & 59           & 59                     \\\midrule
+Overapproximation               &116            & 44                     \\ \bottomrule\\
+\end{tabular}
+\label{res:statsTDSprecisiondep}
+\end{table}
+
+We remark that with the deferred dependencies extension, we obtain more
+precise dependency summaries for 273 predicates of the RSM/FSP abstract
+layer. These constitute approximately 50\% of the predicates in the used
+benchmark. For the TDS layer we obtain more precise results for 308 
+predicates using the deferred dependencies extension. These constitute 
+approximately 50\% of the predicates in the TDS layer for which non-trivial 
+results can be obtained (i.e. excluding implicit predicates and those without 
+inputs). The dependency summaries obtained with the extended analysis are
+considerably more detailed. For instance, just to give an intuition of the 
+difference between the results obtained for the TDS layer, the file containing 
+the results computed with the
+context-insensitive dependency analysis contains 7333 lines and its size is
+263.1 kB, while the file containing the results computed with the extended
+analysis contains 11547 lines and its size is 523.9 kB. 
+
+The statistics for the correlation analysis are shown in
+Table~\ref{res:statsprecisioncor}.  Unlike the dependency analysis, which
+handles both logical properties and predicates generating outputs, the
+correlation analysis does not handle logical properties.  It tracks
+fine-grained partial equivalences between parts of the input and
+parts of the output. Therefore, the number of RSM/FSP predicates for which we
+can obtain non-trivial results (i.e. at least one partial equivalence between an input 
+(sub)element and an output (sub)element, on at least one exit label) is lower. 
+Implicit predicates and
+specification-only predicates are mapped to \textsf{NoCorrelation}, the
+top element conveying no information. Out of the 307 predicates left, we
+obtain non-trivial results for 186 of them. The rest include predicates
+relying heavily on calls to implicit predicates. They also include complex
+system calls such as \texttt{fork} or \texttt{exec} and auxiliary operations
+which modify their input entirely.
+
+\begin{table}[!h]
+\caption{RSM/FSP Layers -- Evaluation Data and Correlation \mbox{Summaries}}
+\centering
+\begin{tabular}{lc} \toprule
+    {}         & {Correlation Analysis} 
+                                                                          \\ \midrule
+Number of Total Predicates           & 633                                  \\ \midrule
+Number of Implicit Predicates        & 65                                     \\ \toprule
+Number of Logical Properties (No Outputs)  & 235\\\midrule
+No Inputs                        & 26                                     \\\midrule
+Number of Non-Trivial Results    & 186                                   \\\midrule
+Number of Trivial-Results            & 90                                   \\
+  \tabitem Implicit & \tabitemindent 65                                \\
+  \tabitem No Inputs & \tabitemindent 26                                \\
+  \tabitem No Outputs & \tabitemindent 235                              \\
+  \tabitem Atomic/Implicit Inputs & \tabitemindent 31                             \\\midrule
+\end{tabular}
+\label{res:statsprecisioncor}
+\end{table}
+
+An overview of the correlation results for the TDS layer is given in 
+Table~\ref{res:statsTDSprecisioncor}. The table follows the same structure as
+described for Table~\ref{res:statsprecisioncor}.
+
+\begin{table}[!h]
+\caption{TDS Layer -- Evaluation Data and Correlation \mbox{Summaries}}
+\centering
+\begin{tabular}{lc} \toprule
+    {}         & {Correlation Analysis} 
+                                                                          \\ \midrule
+Number of Total Predicates           & 780                                  \\ \midrule
+Number of Implicit Predicates        & 155                                     \\ \toprule
+Number of Logical Properties (No Outputs)  & 231 \\\midrule
+No Inputs                        & 15                                     \\\midrule
+Number of Non-Trivial Results    & 235                                   \\\midrule
+Number of Trivial-Results            & 95                                   \\
+  \tabitem Implicit & \tabitemindent 155                                \\
+  \tabitem No Inputs & \tabitemindent 15                                \\
+  \tabitem No Outputs & \tabitemindent 231                               \\
+  \tabitem Atomic/Implicit Inputs & \tabitemindent  49                   \\\midrule
+\end{tabular}
+\label{res:statsTDSprecisioncor}
+\end{table}
+
+\subsection{Reasoning about framing with dependency and correlation analysis}
+In general, reasoning about framing relies on the \emph{frame rule}, which is commonly 
+illustrated as follows:
+\[
+\inferrule[]{ \{ P \} C \{ Q \} }
+{\{P \wedge R\} C \{Q \wedge R\}}
+\]
+%
+The purpose of the frame rule is to enable local reasoning: a property $R$
+that holds for a state $P$, will continue to hold after executing a command
+$C$, provided that $R$ reads only locations that are unmodified by $C$.
+The frame rule, also called the rule of constancy~\cite{reynolds81},
+applies in its original form to simple languages which do not use a heap. 
+Separation logic addresses framing for heap-supporting languages. 
+
+In our case, the {\asmil} language with which we are working does not
+support mutation. Our work is not concerned with heap modifications but
+focuses on deep-state modifications. We handle predicates that receive a 
+composite input state and construct a new 
+composite output state, without altering the former. The new output state is 
+constructed by copying the input state and modifying a subset of subelements. 
+
+In our context, the frame rule must be reinterpreted as follows: a property 
+$R$ is preserved by a predicate $C$ receiving 
+an input state $P$ and constructing an output state $Q$, if the states $P$ and $Q$ 
+agree on the subset on which the property $R$ depends.
+%are equal modulo the subset on which the property $R$ does not depend on. 
+In other 
+words, a property is preserved by a predicate, if the latter only modifies 
+subelements on which the property does not depend. Using the terminology used
+in separation logic, a property $R$ is preserved by a predicate $C$ if the 
+footprint of $C$ is disjoint from the footprint of $R$. However, 
+we are not concerned with locations, but with subelements of large states modeled
+by algebraic data structures and arrays. Therefore, when reasoning about framing
+we need to check if the input subset
+modified by an operation is disjoint from the subset that properties are reading 
+and depending on. %It is our translation of the frame rule in a certain sense.
+
+We have devised two static analyses for automatically computing the footprints 
+of operations and properties. The dependency analysis detects the input subset 
+on which the outcome of an operation or of a property relies. The 
+correlation analysis detects the input subset that is modified by an operation 
+in order to obtain the output. The results of the two analyses are meant to be
+used and combined by a decision procedure in order to automatically infer the
+preservation of frame properties.   
+
+We  have applied  a  basic  prototype of  the  decision  procedure using  the
+dependency  and correlation  summaries  computed for  the  RSM/FSP layers  of
+\pcore{}.
+
+% * input data: explain the auto mode
+% ** Condition: an input type of the logical property is also an output type of the predicate
+% ** any pair of i/o will do, if there are several all were attempted
+% ** primitive and implicit types were (manually) excluded from these type(i) = type(o) conditions, based on the assumption that they would rarely succeed (e.g. for int).
+
+Our prototype considers pairs of one  logical property and one predicate. The
+logical property  and the predicate must  both operate on values  of the same
+type. More precisely,  one of the predicate's  inputs, as well as  one of its
+outputs and one of the logical property's inputs must all be of the same type.
+Our prototype  attempts to detect  whether the logical property  is preserved
+after the execution  of the predicate. If several inputs  or outputs are of the
+same type,  all combinations are  considered.  Most implicit types  were not
+considered % or "excluded" ?
+when searching for property/predicate pairs, as they are less likely to yield
+successful results.  For example, arguments of a primitive type like
+\texttt{int}  are unlikely  to be  unaffected  by the  execution of  the
+predicate.
+
+% * explain what is considered a ``yes'':
+% ** array indices are considered $\neq$ (i.e. implicit hypothesis $i \neq j, \forall i,j \in \text{Array Indices}$ as part of the decision procedure)
+% ** both the true and the false exit labels are tested independently, success if either or both succeed. $\mathit{Prop}(\bar{\imath}) \rightarrow^{true} \Rightarrow \mathit{Pred}(\bar{\imath}, \bar{o}) \Rightarrow \mathit{Prop}(\bar{\i}) \rightarrow^{true}$, and the same thing for false.
+
+This  prototype automatically  inspected  all  such property/predicate  pairs
+found in the RSM/FSP layers. A property was considered to be preserved if its
+dependency summary  for the argument  involved, when translated  to a set of
+equalities,  formed a  subset of  the equalities  implied by  the predicate's
+correlation  summary.  Both  the  \texttt{true} and  the \texttt{false}  exit
+labels were  considered independently, and  the property is considered  to be
+preserved (subject  to some conditions)  when it  is preserved for  either or
+both exit labels. %% More precisely, given  a property
+%% $\pi(\bar{\imath})[\mathit{true} \| \mathit{false}]$  and a predicate
+%% $p(\bar{\imath}')[\ell: \bar{o}']$ where $i \in \bar{\imath}$,
+%% $i' \in \bar{\imath}'$ and $o' \in \bar{o}'$ all have the same type, we
+%% report success when it can deduce the following:
+%
+More precisely, given  a property
+$\pi(\bar{\imath})[\mathit{true} | \mathit{false}]$  and a predicate
+$p(\bar{\imath}')[\ell: \bar{o}']$, we report success when it can satisfy the
+following:
+%% \begin{align*}
+%%                                         & \ell in \{\mathit{true}, \mathit{false}\}                                                                              \\
+%%   \vphantom{a} \Rightarrow \vphantom{b} & i \neq j \quad \forall i,j \text{ where } \tau(i) = \mathit{Array{<}{\_}{>}} \wedge \tau(j) = \mathit{Array{<}{\_}{>}} \\
+%%   \vphantom{a} \Rightarrow \vphantom{b} & \mathit{Prop}(\bar{\imath}) \xrightarrow{\ell}                                                                         \\
+%%   \vphantom{a} \Rightarrow \vphantom{b} & \mathit{Pred}(\bar{\imath}, \bar{o}) \xrightarrow{\ell'}                                                               \\
+%%   \vphantom{a} \Rightarrow \vphantom{b} & \mathit{Prop}(\bar{\i}) \xrightarrow{\ell}
+%% \end{align*}
+
+\begin{align}
+% There is at least one of the exit labels {true,false}
+  \label{eq:ch8:auto-mode-iio}
+                                   & \exists\, i \in \bar{\imath}, i' \in \bar{\imath}', o' \in \bar{o}' \text{ such that } \Gamma(i) = \Gamma(i') = \Gamma(o')            \\
+  \label{eq:ch8:auto-mode-ell}
+  \vphantom{a} \wedge \vphantom{b} & \exists\, \ell \in \{\mathit{true}, \mathit{false}\}                                                                                  \\
+% for which, assuming that the array indices involved are different
+  \vphantom{a} \wedge \vphantom{b} & E(j) \neq E(k) \wedge E'(j) \neq E'(k) \quad \forall j,k \in \{\bar{\imath},\bar{\imath}',\bar{o}'\}                                  \\
+                                   & \quad \text{when $j$ and $k$ are used as array indices}                                                                               \\
+% the frame rule Prop(old-prop-arguments) => Pred(old-inputs)[\ell': new-outputs] => Prop(new-prop-arguments)
+  \vphantom{a} \wedge \vphantom{b} & \left\langle E, \left[\;\mathit{Prop}(\bar{\imath}[i \rightarrow i'])[true|\mathit{false}]\;\right]\right\rangle \xrightarrow{\ell} E \\
+  \vphantom{a} \wedge \vphantom{b} & \left\langle E, \left[\;\mathit{Pred}(\bar{\imath}')[\ell': \bar{o}|\ldots]\;\right]\right\rangle \xrightarrow{\ell'} E'              \\
+  \label{eq:ch8:auto-mode-last}
+\vphantom{a} \wedge \vphantom{b} & \left\langle E' \left[\;\mathit{Prop}(\bar{\imath}[i \rightarrow o'])[true|\mathit{false}]\;\right]\right\rangle \xrightarrow{\ell} E'
+\end{align}
+where $\bar{\imath}[i  \rightarrow i']$ and $\bar{\imath}[i  \rightarrow o']$
+denote the sequence of variables $\bar{\imath}$  in which the variable $i$ is
+replaced by the variable $i'$ (respectively $o'$).
+
+% * :::::::::TODO::::::::: give some figures about the results
+
+This initial  prototype was run on  the 398 explicit predicates and  235 properties of
+the RSM/FSP layer of ProvenCore. Out of these, we filtered predicate/property
+pairs for which the property has an input  $i$ of the same type as one of the
+predicate's inputs $i'$ and one of  its outputs $o'$. These pairs involve 161
+distinct predicates  and 165 distinct  properties. In total, there  were 8250
+tuples    $(i,   i',    o',   \ell)$    which   satisfied    the   conditions
+\ref{eq:ch8:auto-mode-iio} and \ref{eq:ch8:auto-mode-ell}.
+
+This experiment allowed us, as a  first result, to automatically identify 102
+predicates for which at least one  property is preserved under the conditions
+\ref{eq:ch8:auto-mode-iio}~--~\ref{eq:ch8:auto-mode-last} stated  above.  For
+many predicates,  it was possible to  show that, after the  execution of said
+predicate,   several   properties   are    preserved   (up   to   33).    
+Figure~\ref{fig:constplot-num-properties}  shows  an  overview  of  how  many
+properties were inferred to be preserved  for each predicate. The blue region
+at the bottom indicates how many  properties are inferred to be preserved for
+a given predicate, while the red  region above shows how many properties were
+compatible with the predicate, but were not inferred to be preserved.
+
+\begin{figure}[ht]
+  \centering
+  \begin{tikzpicture}
+    \begin{axis}[
+      const plot, area style, % staircase (with \closedcycle at the end) or
+      % ybar interval,        % histogram (without \closedcycle)
+      ymax=50,
+      ymin=0,
+      minor y tick num = 1,
+      xtick={0,20,...,100},
+      major grid style={dotted},
+      xmin=1,
+      xmax=102,
+      xlabel={Predicates},
+      ylabel={Number of preserved properties inferred},
+      width=\textwidth,
+      ]
+      %
+      % sqlite3 all_auto.db "select (select count(*) from (select distinct prop from results where pred = pr)) as non from (select pred as pr, count(*) as c from (select distinct pred,prop from results where ans='yes') group by pr) order by c,non;" | nl | sed -e 's/\s\s*/ /g' -e 's/^ /(/' -e 's/ /, /' -e 's/$/)/'
+      \pgfplotsset{cycle list shift=1}
+      \addplot coordinates {
+        (1, 5)
+        (2, 7)
+        (3, 13)
+        (4, 16)
+        (5, 38)
+        (6, 41)
+        (7, 41)
+        (8, 41)
+        (9, 41)
+        (10, 41)
+        (11, 41)
+        (12, 42)
+        (13, 47)
+        (14, 47)
+        (15, 47)
+        (16, 47)
+        (17, 47)
+        (18, 50)
+        (19, 50)
+        (20, 50)
+        (21, 50)
+        (22, 50)
+        (23, 50)
+        (24, 50)
+        (25, 13)
+        (26, 13)
+        (27, 13)
+        (28, 13)
+        (29, 38)
+        (30, 40)
+        (31, 35)
+        (32, 35)
+        (33, 35)
+        (34, 38)
+        (35, 38)
+        (36, 38)
+        (37, 38)
+        (38, 13)
+        (39, 38)
+        (40, 38)
+        (41, 38)
+        (42, 38)
+        (43, 38)
+        (44, 7)
+        (45, 35)
+        (46, 35)
+        (47, 38)
+        (48, 38)
+        (49, 38)
+        (50, 38)
+        (51, 38)
+        (52, 38)
+        (53, 38)
+        (54, 38)
+        (55, 38)
+        (56, 38)
+        (57, 7)
+        (58, 35)
+        (59, 35)
+        (60, 35)
+        (61, 35)
+        (62, 35)
+        (63, 35)
+        (64, 35)
+        (65, 38)
+        (66, 38)
+        (67, 38)
+        (68, 39)
+        (69, 13)
+        (70, 13)
+        (71, 13)
+        (72, 35)
+        (73, 35)
+        (74, 13)
+        (75, 13)
+        (76, 13)
+        (77, 13)
+        (78, 16)
+        (79, 16)
+        (80, 16)
+        (81, 16)
+        (82, 31)
+        (83, 31)
+        (84, 31)
+        (85, 31)
+        (86, 31)
+        (87, 31)
+        (88, 31)
+        (89, 31)
+        (90, 31)
+        (91, 31)
+        (92, 31)
+        (93, 31)
+        (94, 31)
+        (95, 35)
+        (96, 38)
+        (97, 35)
+        (98, 35)
+        (99, 35)
+        (100, 35)
+        (101, 35)
+        (102, 35)
+      }
+      \closedcycle
+      ;
+      % 
+      % sqlite3 all_auto.db "select c from (select pred as pr, count(*) as c, group_concat(prop) as props from (select distinct pred,prop from results where ans='yes') group by pr) order by c,(select count(*) from (select distinct prop from results where pred = pr));" | nl | sed -e 's/\s\s*/ /g' -e 's/^ /(/' -e 's/ /, /' -e 's/$/)/'
+      \pgfplotsset{cycle list shift=-1}
+      \addplot coordinates {
+        (1, 1)
+        (2, 1)
+        (3, 1)
+        (4, 1)
+        (5, 1)
+        (6, 1)
+        (7, 1)
+        (8, 1)
+        (9, 1)
+        (10, 1)
+        (11, 1)
+        (12, 1)
+        (13, 1)
+        (14, 1)
+        (15, 1)
+        (16, 1)
+        (17, 1)
+        (18, 1)
+        (19, 1)
+        (20, 1)
+        (21, 1)
+        (22, 1)
+        (23, 1)
+        (24, 1)
+        (25, 2)
+        (26, 2)
+        (27, 2)
+        (28, 2)
+        (29, 2)
+        (30, 2)
+        (31, 3)
+        (32, 3)
+        (33, 3)
+        (34, 3)
+        (35, 3)
+        (36, 3)
+        (37, 3)
+        (38, 4)
+        (39, 4)
+        (40, 4)
+        (41, 4)
+        (42, 4)
+        (43, 4)
+        (44, 5)
+        (45, 5)
+        (46, 5)
+        (47, 5)
+        (48, 5)
+        (49, 5)
+        (50, 5)
+        (51, 5)
+        (52, 5)
+        (53, 5)
+        (54, 5)
+        (55, 5)
+        (56, 5)
+        (57, 6)
+        (58, 6)
+        (59, 6)
+        (60, 6)
+        (61, 6)
+        (62, 6)
+        (63, 6)
+        (64, 6)
+        (65, 6)
+        (66, 6)
+        (67, 6)
+        (68, 6)
+        (69, 7)
+        (70, 7)
+        (71, 7)
+        (72, 7)
+        (73, 7)
+        (74, 9)
+        (75, 9)
+        (76, 9)
+        (77, 9)
+        (78, 12)
+        (79, 12)
+        (80, 13)
+        (81, 14)
+        (82, 22)
+        (83, 22)
+        (84, 23)
+        (85, 23)
+        (86, 26)
+        (87, 26)
+        (88, 27)
+        (89, 27)
+        (90, 27)
+        (91, 27)
+        (92, 29)
+        (93, 29)
+        (94, 29)
+        (95, 30)
+        (96, 31)
+        (97, 32)
+        (98, 33)
+        (99, 33)
+        (100, 33)
+        (101, 33)
+        (102, 33)
+      }
+      \closedcycle
+      ;
+    \end{axis}
+  \end{tikzpicture}
+  \caption[Distribution of the number of inferred preserved properties]{Distribution of the number of inferred preserved properties. Predicates are sorted along that criterion.}
+  \label{fig:constplot-num-properties}
+\end{figure}
+
+Figure~\ref{fig:constplot-num-predicates} shows an overview  of how many
+predicates were inferred  to be preserving each property. The  blue region at
+the bottom  indicates how  many predicates  are inferred  to be  preserving a
+given property,  while the red  region above  shows how many  predicates were
+compatible with the property, but were not inferred to be preserving it.
+
+\begin{figure}[ht]
+  \centering
+  \begin{tikzpicture}
+    \begin{axis}[
+      const plot, area style, % staircase (with \closedcycle at the end) or
+      % ybar interval,        % histogram (without \closedcycle)
+      ymax=61,
+      ymin=0,
+      minor y tick num = 1,
+      xtick={0,20,...,80,90},
+      major grid style={dotted},
+      xmin=1,
+      xmax=91,
+      xlabel={Properties},
+      ylabel={Number of predicates preserving the property inferred},
+      width=\textwidth,
+      ]
+      % 
+      % sqlite3 all_auto.db "select (select count(*) from (select distinct pred from results where prop = pr)) as non from (select prop as pr, count(*) as c from (select distinct prop,pred from results where ans='yes') group by pr) order by c,non;" | nl | sed -e 's/\s\s*/ /g' -e 's/^ /(/' -e 's/ /, /' -e 's/$/)/'
+      \pgfplotsset{cycle list shift=1}
+      \addplot coordinates {
+        (1, 1)
+        (2, 2)
+        (3, 3)
+        (4, 2)
+        (5, 2)
+        (6, 2)
+        (7, 2)
+        (8, 2)
+        (9, 22)
+        (10, 22)
+        (11, 22)
+        (12, 29)
+        (13, 22)
+        (14, 22)
+        (15, 22)
+        (16, 22)
+        (17, 22)
+        (18, 22)
+        (19, 22)
+        (20, 22)
+        (21, 22)
+        (22, 22)
+        (23, 22)
+        (24, 22)
+        (25, 22)
+        (26, 22)
+        (27, 22)
+        (28, 48)
+        (29, 48)
+        (30, 48)
+        (31, 22)
+        (32, 22)
+        (33, 22)
+        (34, 48)
+        (35, 48)
+        (36, 48)
+        (37, 48)
+        (38, 48)
+        (39, 48)
+        (40, 48)
+        (41, 48)
+        (42, 48)
+        (43, 48)
+        (44, 48)
+        (45, 48)
+        (46, 48)
+        (47, 48)
+        (48, 48)
+        (49, 48)
+        (50, 48)
+        (51, 48)
+        (52, 48)
+        (53, 48)
+        (54, 48)
+        (55, 13)
+        (56, 13)
+        (57, 13)
+        (58, 13)
+        (59, 22)
+        (60, 13)
+        (61, 13)
+        (62, 13)
+        (63, 13)
+        (64, 13)
+        (65, 13)
+        (66, 48)
+        (67, 13)
+        (68, 13)
+        (69, 13)
+        (70, 13)
+        (71, 13)
+        (72, 13)
+        (73, 13)
+        (74, 13)
+        (75, 13)
+        (76, 13)
+        (77, 13)
+        (78, 13)
+        (79, 13)
+        (80, 13)
+        (81, 13)
+        (82, 22)
+        (83, 61)
+        (84, 19)
+        (85, 61)
+        (86, 48)
+        (87, 61)
+        (88, 48)
+        (89, 48)
+        (90, 48)
+        (91, 48)
+      }
+      \closedcycle
+      ;
+      % 
+      % sqlite3 all_auto.db "select c from (select prop as pr, count(*) as c, group_concat(pred) as preds from (select distinct prop,pred from results where ans='yes') group by pr) order by c,(select count(*) from (select distinct pred from results where prop = pr));" | nl | sed -e 's/\s\s*/ /g' -e 's/^ /(/' -e 's/ /, /' -e 's/$/)/'
+      \pgfplotsset{cycle list shift=-1}
+      \addplot coordinates {
+        (1, 1)
+        (2, 1)
+        (3, 1)
+        (4, 2)
+        (5, 2)
+        (6, 2)
+        (7, 2)
+        (8, 2)
+        (9, 2)
+        (10, 2)
+        (11, 3)
+        (12, 3)
+        (13, 4)
+        (14, 4)
+        (15, 4)
+        (16, 4)
+        (17, 4)
+        (18, 4)
+        (19, 4)
+        (20, 4)
+        (21, 4)
+        (22, 4)
+        (23, 4)
+        (24, 4)
+        (25, 5)
+        (26, 7)
+        (27, 7)
+        (28, 7)
+        (29, 7)
+        (30, 7)
+        (31, 8)
+        (32, 8)
+        (33, 8)
+        (34, 8)
+        (35, 8)
+        (36, 8)
+        (37, 8)
+        (38, 8)
+        (39, 8)
+        (40, 8)
+        (41, 8)
+        (42, 8)
+        (43, 8)
+        (44, 8)
+        (45, 8)
+        (46, 8)
+        (47, 8)
+        (48, 8)
+        (49, 8)
+        (50, 8)
+        (51, 8)
+        (52, 8)
+        (53, 8)
+        (54, 8)
+        (55, 11)
+        (56, 11)
+        (57, 11)
+        (58, 11)
+        (59, 11)
+        (60, 12)
+        (61, 12)
+        (62, 12)
+        (63, 12)
+        (64, 12)
+        (65, 12)
+        (66, 12)
+        (67, 13)
+        (68, 13)
+        (69, 13)
+        (70, 13)
+        (71, 13)
+        (72, 13)
+        (73, 13)
+        (74, 13)
+        (75, 13)
+        (76, 13)
+        (77, 13)
+        (78, 13)
+        (79, 13)
+        (80, 13)
+        (81, 13)
+        (82, 13)
+        (83, 16)
+        (84, 19)
+        (85, 19)
+        (86, 33)
+        (87, 34)
+        (88, 36)
+        (89, 37)
+        (90, 45)
+        (91, 46)
+      }
+      \closedcycle
+      ;
+    \end{axis}
+  \end{tikzpicture}
+  \caption[Distribution of the number of inferred predicates for which a property is preserved]{Distribution of the number of inferred predicates for which a property is preserved. Properties are sorted along that criterion.}
+  \label{fig:constplot-num-predicates}
+\end{figure}
+
+It is  worth noting  that in both figures~\ref{fig:constplot-num-properties}
+and~\ref{fig:constplot-num-predicates},  the   red   zone contains
+properties (respectively predicates) which could fall into these cases:
+\begin{itemize}
+\item  The  property is  actually  threatened  by  the predicate  (respectively  the
+  predicate threatens the property);
+\item  The  property   is  not  threatened  (respectively the predicate  is  not
+  threatening), but proving so requires  more information that is obtained by
+  our  dependency and  correlation  analysis.  For  example,  a more  precise
+  dependency or correlation analysis  (e.g. tracking constructor evolution as
+  presented in  \ref{sec:cor:cons}) could  be needed.   A numerical  or value
+  analysis  could also  help  determine  that the  parts  of  the input  data
+  structure which  are modified  by the  predicate and  on which  the logical
+  property also depends still satisfy the property after the execution of the
+  predicate.   Alternatively, the  preservation  of these  properties can  be
+  demonstrated using an interactive prover.
+\item  The  property   is  not  threatened  (respectively the predicate  is  not
+  threatening), and  the dependency and correlation  summaries contain enough
+  information to  prove the non-interference  of the predicate  and property,
+  but our decision procedure prototype failed to infer it. This can be due to
+  a timeout  (this initial prototype has  not been optimized at  all, and can
+  take  a substantial  time in  some cases),  or to  precision losses  in the
+  decision procedure prototype itself.
+\end{itemize}
+
 
 \section{Related work}
 
