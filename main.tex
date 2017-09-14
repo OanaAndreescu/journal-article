@@ -580,7 +580,677 @@ $\mathscr{O}$.
 
 \subsection{Organisation of the article}
 
-\section{The SMART functional specification language}
+\section{A functional specification language}
+
+
+%%% Macros %%%
+
+%Structure Type
+\def\commonstypeother{\plainstype{f'}{1}{\tau'_1}{f'}{n}{\tau'_n}}
+
+%Variant Type
+\def\commonvtypeother{\plainvtype{C'}{1}{\tau'_1}{C'}{n}{\tau'_n}}
+
+%Array Type
+\def\commonatypeother{\plainatype{\tau'_i}{\tau'}}
+
+%Variant Values
+\newcommand{\plainvval}[3] {\ensuremath{#1_{#2}[#3] }}
+
+\def\commonvval{\plainvval{C}{i}{v}}
+
+%% Notation for statements semantics
+\newcommand{\semstm}[1]{[#1]}
+%% Notation for configurations
+\newcommand{\config}[2]{\ensuremath{\big \langle #1, \semstm{#2} \big
+    \rangle}} \def\defconfig{\config{\env}{s}}
+%% Notation for extending the environment
+\newcommand{\extendEnv}[2]{\ensuremath{\env\left[#1 \to #2\right]}}
+
+%% Transition macro
+\newcommand{\transto}[1]{\xrightarrow{#1}}
+
+%%Name for our version of Smil
+\def\asmil{\textsf{$\alpha$Smil}}
+
+%Generic option type
+\def\optiont{\boldsymbol{\small{variant}} [\textrm{\disp{Some}} :
+    \boldsymbol{\small{struct}}\{\textrm{\disp{t}} :
+    \textrm{\disp{T}}\} \; \arrowvert\; \; \textrm{\disp{None}} :
+    \boldsymbol{\small{struct}}\{\}]}
+
+In this chapter, we define the syntax and the semantics of {\asmil}
+language. 
+The {\asmil} language is a minimalistic, first-order, purely functional and strongly-typed 
+language with arrays and algebraic data types, i.e. structures and variants.
+It is an intermediate, analysis-oriented language.
+
+\paragraph{Programs.} A program in {\asmil} consists of a number of type and 
+constant declarations and definitions followed by a collection of predicates. In 
+contrast to {\slang} and {\textsf{Smil}}, type and predicate declarations have 
+no visibility modifiers (such as \disp{public}), and they are not organized into 
+\emph{modules}. The absence of visibility modifiers is a natural consequence of 
+the disappearance of modules. We assume that there is one module in which every 
+type, constant and predicate declaration resides and these are mutually visible to 
+each other. These restrictions are made for the sake of simplicity since the 
+techniques proposed in this thesis are orthogonal to the concepts of visibility 
+and modules.
+%like Darvas - rephrase 
+%An extension to include these concepts is straight-forward. 
+
+Constants are declared using the keyword \disp{const}, followed by the type and 
+the constant identifier. Constant identifiers are written in upper-case letters
+and are preceded by the special symbol \disp{#}.
+
+Types are declared using the keyword \disp{type}, followed by the type identifier
+and, optionally, in the case of polymorphic type declarations, by a number of type 
+parameters, given in upper-case letters between \disp{<>}. In the case of implicit
+types this constitutes the complete type declaration. Explicit type declarations 
+continue with the symbol \disp{=} and the type's definition. Throughout the rest 
+of this chapter and the presentation of our static analyses we will ignore 
+polymorphism. The abstract types of our analyses are not polymorphic and the
+impact of polymorphism is visible only at the implementation level, for type 
+substitutions that will be discussed in Chapter~\ref{chapter9}.
+ 
+%\newcommand{\eqt}{\stackrel{\diamond}{=}}
+
+\paragraph{Types.} Similarly to {\slang}, algebraic data types, i.e. structures
+and variants, and associative arrays are supported. We let $\mathbb{T}$ be the 
+universe of type identifiers and 
+$T_0 \subset \mathbb{T}$ the set of base type 
+identifiers. We assume a set of identifiers for structure fields and variant
+constructors, denoted by $\fset$ and $\cset$, respectively. 
+
+A \emph{structure} represents the \emph{Cartesian product} of the different 
+types of its elements, called \emph{fields}. A \emph{variant} is the 
+\emph{disjoint union} of different types. It represents data that may take on 
+multiple forms, where each form is marked by a specific tag called the 
+\emph{constructor}. \emph{Arrays} group elements of data of the same type (given 
+in angle brackets) into a single entity; elements are selected by an index whose 
+type is included (as denoted by the superscript) in the array's definition as
+well.
+%
+\begin{definition}{Types $\tau \in \mathbb{T}$ in {\asmil}.}\label{ch4:types:def}
+\[
+\begin{array}{llll}
+  \phantom{aa}\tau \in \mathbb{T}, 
+  \tau :=  &\ver \tau_0 \in T_0 &&\textrm{\small{base types}} 
+           \\
+           &\ver \commonstype        & f_i \in \mathcal{F}, 0 \leq n
+                                     &\textrm{\small{structures}} 
+           \\
+           &\ver \commonvtype        & C_i \in \mathcal{C}, 1 \leq m
+                                     & \textrm{\small{variants}} 
+           \\
+           &\ver \commonatype        & &\textrm{\small{arrays}}
+\end{array}
+\]
+\end{definition}
+
+\noindent Variants and structures can be used together to model traditional 
+algebraic variants with zero or several parameters. For instance, a generic 
+type \disp{option<T>} is actually modeled as:
+%
+\[ \optiont. \] 
+ 
+Concretely, structures are declared and defined by indicating a set of pairs of 
+field identifiers and their corresponding types between \disp{\{\}}. Declaring
+structures with \emph{no fields} is possible. Variants are declared and defined 
+by indicating the list of their constructors, each starting with an upper-case 
+letter, preceded by the symbol \disp{|}. Unlike structures, variants must have at 
+\emph{least one} declared constructor. For instance, the \disp{state} and 
+\disp{thread} types from our Abstract Process Manager example given in {\slang} 
+in Section~\ref{sec:lang:apmsm}, on page~\pageref{ch3:threadtype}, 
+have the following {\smil} declaration:
+
+\begin{longtable}{ll}
+\toprule
+\begin{lstlisting}
+type state =
+|Ready
+|Running
+|Blocked
+\end{lstlisting} 
+&\phantom{aaaa}\begin{lstlisting} 
+type thread = {
+  id : int;
+  crt_state : state;
+  stack : memory_region 
+}
+\end{lstlisting}\\
+\bottomrule 
+\end{longtable}
+
+\noindent In contrast to {\slang}, in structure declarations, the field name precedes 
+the field type.
+
+%add labels
+
+\paragraph{Predicates.} Predicates are declared using the keyword 
+\disp{predicate}, which is specific to {\asmil}, followed by a \emph{predicate 
+identifier} and a signature. A \emph{signature} is given by a sequence of 
+\emph{input} types and a non-empty finite mapping of exit labels, 
+%\defsymbol[$\mathcal{L}$]{$\lambda$}{Exit label}%
+$\lambda \in \mathcal{L}\setminus \{\textsf{error}\}$, to sequences of 
+\emph{output} labels. The set of exit labels 
+%\defsymbol{$\mathcal{L}$}{Set of exit labels}%
+$\mathcal{L}$ contains three 
+distinguished elements, 
+%\defsymbol[$\mathcal{L}$]{$\textsf{error}$}{Special exit label}%
+$\lbtrue$, $\lbfalse$ and $\textsf{error}$. The latter
+cannot appear in predicate signatures; it is used as a sink node in control
+flow graphs, which will be presented in Section~\ref{sec:lang:mysmil:cfg}. 
+We write signatures in the following manner:
+
+%\defsymbol[$\Sigma$]{$\sigma, \sigma_p$}{Signature (of predicate $p$)}%
+\[
+\begin{array}{c}
+\sigma = \\
+\underbrace{(x_1 : \tau_1, \ldots, x_n : \tau_n)}_{\textrm{input identifiers : types}}
+         \underbrace{[\lambda_1: (\tau_{11} : y_{11}, \ldots ,\tau_{1k_1} : y_{1k_1}) \ver \ldots \ver 
+         \overbrace{\lambda_p : (\tau_{p1} : y_{p1}, \ldots, \tau_{pk_p} : y_{pk_p})}^{\textrm{label : (output types : identifiers)}}]}_{\textrm{$p$ possible exit labels}}
+\end{array}
+\]
+
+%\defsymbol{$\Sigma$}{Set of predicate signatures}%
+We denote by $\Sigma$ the mapping between predicate identifiers and their 
+signatures.
+
+The predicate declaration is followed by the predicate's body. Depending on its 
+body's nature, a predicate will be \emph{implicit}, \emph{explicit} or 
+\emph{inductive}. {\slang} implicit and explicit predicates have been presented 
+in Section~\ref{sec:lang:pred} of our previous chapter, while inductive predicates 
+have been illustrated in Section~\ref{sec:lang:spec}, on page~\pageref{ch3:inductive:pred}. 
+For implicit predicates, the 
+body consists solely in the keyword \disp{implicit}. For explicit predicates, an 
+optional \emph{declaration unit} can follow. This is a finite mapping from 
+variables to types and it must be given between double curly braces, i.e. 
+\{\{\disp{typeid videntifier}\}\}. Input and output parameters must be different 
+from all the variables appearing in the declaration units. Declaration units are 
+followed by a sequence of statements representing calls to predicates. 
+
+Just as presented in Chapter~\ref{sec:lang:spec} for {\slang}, an inductive 
+predicate is syntactically distinguished by the 
+keyword \disp{inductive}, followed by its different cases, declared with the keyword 
+\disp{case} followed by an identifier, an optional list of existentially 
+quantified variables and a body of statements. 
+
+A generic call to a predicate $p$ is of the form:
+
+\[
+\predcall.
+\]\label{ch4:predcall:def}
+
+The predicate $p$ is called with inputs $e_1, \ldots, e_n$ and yields one of the
+declared exit labels $\lambda_1, \ldots, \lambda_m$, each having its own set of 
+associated output variables $\bar{o}_1, \ldots, \bar{o}_m$, respectively. We 
+denote by
+%\defsymbol[$\mathcal{V}$]{$o, \bar{o}$}{Output variable(s)}%
+$\bar{o}$ a sequence of 0 or more output variables.
+
+\paragraph{Statements.} The {\asmil} language supports the statements  
+presented in Table~\ref{table:mysmil:statements}. These represent calls to 
+built-in predicates and can be seen as special cases of the predicate call 
+presented above. All statements have a functional nature and handle immutable 
+data. A statement consists in as many variables as there are input types in 
+the signature $\sigma_p$ of the called built-in predicate $p$, and a mapping 
+associating to each exit label of $\sigma_p$ a sequence of variables, one 
+variable for each output type in the corresponding sequence. 
+
+\begin{table}
+$
+\begin{array}{llll}
+  
+s := &\ver \commonasgn   &\snumber{1}  &\textrm{assignment}\\ 
+     &\ver \commoneqtest &\snumber{2}  &\textrm{equality test}\\
+     &\ver \unop         &\snumber{3}  &\textrm{no operation}\\
+     &\ver \recordnew    &\snumber{4}  &\textrm{create structure}\\
+     &\ver \recordall    &\snumber{5}  &\textrm{destructure structure}\\
+     &\ver \recordget    &\snumber{6}  &\textrm{access field}\\
+     &\ver \recordset    &\snumber{7}  &\textrm{update field}\\
+     &\ver \recordeq     &\snumber{8}  &\textrm{check (partial) structure equality}\\
+     &\ver \varcons      &\snumber{9}  &\textrm{create variant}\\
+     &\ver \varswitch    &\snumber{10} &\textrm{destructure variant}\\
+     &\ver \varpossible  &\snumber{11} &\textrm{variant possible}\\
+     &\ver \arrayget     &\snumber{12} &\textrm{array access}\\
+     &\ver \arrayset     &\snumber{13} &\textrm{array update}\\
+     &\ver \predcall     &\snumber{14} &\textrm{predicate call}
+   
+\end{array}
+$
+\caption{{\asmil} -- Set of Supported Statements}
+\label{table:mysmil:statements}
+\defsymbolref{$s$}{Statement}{Tab.}{table:mysmil:statements}%
+\defsymbolref{$\commonasgn$}{\asmil{} assignment statement}{Tab.}{table:mysmil:statements}%
+\defsymbolref{$\commoneqtest$}{\asmil{} equality test statement}{Tab.}{table:mysmil:statements}%
+\defsymbolref{$\unop$}{\asmil{} no operation statement}{Tab.}{table:mysmil:statements}%
+\defsymbolref{$\recordnew$}{\asmil{} create structure statement}{Tab.}{table:mysmil:statements}%
+\defsymbolref{$\recordall$}{\asmil{} destructure structure}{Tab.}{table:mysmil:statements}%
+\defsymbolref{$\recordget$}{\asmil{} access field statement}{Tab.}{table:mysmil:statements}%
+\defsymbolref{$\recordset$}{\asmil{} update field statement}{Tab.}{table:mysmil:statements}%
+\defsymbolref{$\recordeq$}{\asmil{} partial structure equality}{Tab.}{table:mysmil:statements}%
+\defsymbolref{$\varcons$}{\asmil{} create variant statement}{Tab.}{table:mysmil:statements}%
+\defsymbolref{$\boldsymbol{switch}(v) \;\boldsymbol{as} \;[o_1 \arrowvert \! \ldots]$}{\asmil{} destructure variant statement}{Tab.}{table:mysmil:statements}%
+\defsymbolref{$\varpossible$}{\asmil{} variant possible statement}{Tab.}{table:mysmil:statements}%
+\defsymbolref{$\arrayget$}{\asmil{} array access statement}{Tab.}{table:mysmil:statements}%
+\defsymbolref{$\arrayset$}{\asmil{} array update statement}{Tab.}{table:mysmil:statements}%
+\defsymbolref{$p(e_1, \ldots) \; [\lambda_1: \bar{o}_1 \; \arrowvert \! \ldots]$}{\asmil{} predicate call statement}{Tab.}{table:mysmil:statements}%
+\end{table}
+ 
+The first three statements are generic and can be applied to any type. Statement 
+\snumber{1} is a call to the built-in assignment predicate denoted by \disp{:=}, 
+present in an identical form in {\slang} as well. Statement \snumber{2} is a call 
+to the logical operator \disp{=} verifying whether its two input arguments are 
+equal. Statement \snumber{3} is the {\asmil} equivalent of a \emph{no-operation}.
+As a general convention for the statements notation, we denote by $e$ the 
+identifiers of \emph{entry} variables, and by $o$, the identifiers of 
+\emph{output} variables. 
+
+Statements \snumber{4} -- \snumber{8} are structure-related. The first of
+them, statement \snumber{4}, is the constructor of a structure \disp{r} of type
+\textsf{rtype}, having $n$ fields. It corresponds to the statement
+\disp{rtype@new(r+, e_1, ..., e_n)} in {\slang}. Statement \snumber{5} returns 
+the values of all the fields of $r$ into the output parameters $o_1, \ldots, o_n$ 
+and it is the equivalent of \disp{rtype@all(r, o_1+, ..., o_n+)} in {\slang}. 
+Statement \snumber{6} is the individual accessor of a field $f_i$ and corresponds 
+to \disp{rtype@f_i(r, e_i+)} in {\slang}. As previously mentioned, our language is 
+purely functional and handles only immutable algebraic data structures 
+and arrays. Therefore, setting the field $f_i$ of a structure, shown in 
+\snumber{7} and being the equivalent of \disp{rtype@f_i(r'+, e_i)}, returns a new 
+structure where all fields have the same value as in $r$, except $f_i$ which is 
+set to $e_i$. Statement \snumber{8} verifies if the values of the indicated 
+subset of fields of two structures $r'$ and $r''$ are equal. It exists in 
+{\slang} as well, where it has a similar syntax: \disp{rtype@equals[f,g](r', r'')}, 
+for checking that the values of fields \disp{f} and \disp{g} of the two 
+structures are equal, or the dual: \disp{rtype@equals-[f,g](r', r'')}, for 
+checking that the values of all fields except \disp{f} and \disp{g} are equal. 
+%It is specific to our version of {\smil}.
+
+The next group of statements is variant-related. The first of them, statement
+\snumber{9} creates a new variant $v$ of type \textsf{vtype} using the constructor 
+$C_p$ with $e$ as an argument. It corresponds to \disp{vtype@Cp(v+, e)} in 
+{\slang}. Statement \snumber{10} is used for matching on the different 
+constructors of the input variant $v$ and corresponds to \disp{switch(v) case ...} 
+in {\slang}. The last statement of this group, statement \snumber{11}, verifies 
+if the given variant was created with one of the constructors in 
+$\{C_1, \ldots, C_k\}$. This could be obtained with a variant switch, but for 
+practical considerations it has been provided as a built-in predicate. Its 
+counterpart in {\slang} is \disp{vtype@case[C1, ..., Ck](v)}.   
+
+Statements \snumber{12} and \snumber{13} are array-related. \snumber{12} returns 
+the value of the $i$-th cell of the input array $a$. Similarly to \snumber{7}, 
+updating the $i$-th cell of an array -- shown in \snumber{13} --  has a functional 
+nature. It returns a new array where all cells have the same values as in $a$,
+except the $i$-th cell which is set to $e$. These statements are specific to 
+{\asmil}.
+
+Statement \snumber{14} is a generic call to a predicate $p$ and has been presented
+on page~\pageref{ch4:predcall:def}.
+
+\paragraph{Exit Labels.} All of the built-in supported statements have an 
+associated set of exit labels, $\lambda \in \mathcal{L}\setminus\{\textsf{error}\}$. 
+These are indicated in Table~\ref{mysmil:elabel}. There are two distinguished 
+exit labels, {\lbtrue} and {\lbfalse}, respectively. An additional built-in label 
+called \textsf{error} is used as a sink node in control flow graphs. It cannot be 
+used as an exit label for a predicate. 
+
+\begin{longtable}{lll}
+\caption{Statements and their Exit Labels}
+\label{mysmil:elabel}\\
+\toprule
+\textrm{\textsf{Statement}} & &\textrm{\textsf{Exit Labels}} \\
+\midrule
+$\commonasgn$   &\snumber{1}  &$\unary{o}$\\\\
+$\commoneqtest$ &\snumber{2}  &$\lbinary{\emptyset}{\emptyset}$\\\\
+$\unop$         &\snumber{3}  &$\unary{\emptyset}$\\\\
+$\recordnew$    &\snumber{4}  &$\unary{r}$\\\\
+$\recordall$    &\snumber{5}  &$\unary{o_1,\ldots ,o_n}$\\\\
+$\recordget$    &\snumber{6}  &$\unary{o_i}$\\\\
+$\recordset$    &\snumber{7}  &$\unary{r'}$\\\\
+$\recordeq$     &\snumber{8}  &$\lbinary{\emptyset}{\emptyset}$\\\\
+$\varcons$      &\snumber{9}  &$\unary{v}$\\\\ 
+$\varswitch$    &\snumber{10} &$\multiv{C_1}{C_n}{n}$ \\\\
+$\varpossible$  &\snumber{11} &$\lbinary{\emptyset}{\emptyset}$\\\\
+$\arrayget$     &\snumber{12} &$\lbinary{o}{\emptyset}$\\\\
+$\arrayset$     &\snumber{13} &$\lbinary{a'}{\emptyset}$\\\\
+$\predcall$     &\snumber{14} &$\multi{1}{m}{k}{m}$\\\\
+\bottomrule
+\end{longtable} 
+
+As shown in Table~\ref{mysmil:elabel}, statement \snumber{10} has an exit label
+$\lambda_{C_i}$ corresponding to each constructor $C_i$ of the input variant.
+Statements \snumber{2}, \snumber{8} and \snumber{11} are bi-labeled, using
+{\lbtrue} and {\lbfalse} as logical values. Neither of them has any associated
+outputs. Statements \snumber{12} and \snumber{13} are bi-labeled as well.
+However, unlike the previously mentioned statements, they use the label
+{\lbfalse} as an ``out of bounds'' exception and generate an output only for the
+label {\lbtrue}. All other statements except \snumber{14} are uni-labeled: they
+associate all their output parameters (if any), to the label {\lbtrue}. In
+contrast to {\slang}, in {\asmil}, every exit label, including {\lbtrue}, must
+be explicitly indicated. Furthermore, any output is explicitly associated to an
+exit label.
+
+%% Revisiting our \disp{stop_thread} predicate, introduced in Section~1.5 of the 
+%% previous chapter, we can finally indicate its body in our version of {\smil}:
+In Section~\ref{sec:lang:apmsm} (on page~\pageref{ch3:stopthread:example}) of 
+our previous chapter, we introduced a {\slang} 
+predicate, called \disp{stop_thread}. If the given index \disp{i} designates an
+active associated thread, this predicate sets its state to \disp{Blocked} and 
+returns the new state of the process. Otherwise, the predicate exits with label
+\disp{invalid}. Revisiting it, we can finally indicate its body in the {\asmil} 
+language\footnote{The {\asmil} version is slightly simplified, as we are not checking
+if the transition to \textsf{Blocked} is valid.}:
+
+\begin{longtable}{l}
+\caption{Predicate Body in {\asmil}}
+\label{asmil:body:stop}\\
+\toprule
+\begin{lstlisting}
+// Signature
+predicate stop_thread (process p, int i)
+-> [true: process o | invalid] 
+// Declaration unit
+{{array<option_thread> ta, option_thread th, 
+  thread ti, state s}}
+// Predicate body
+\end{lstlisting}\\
+\begin{lstlisting} 
+{
+  ta := p.threads : [true -> 1]; // 0
+  th := ta[i] : [true -> 2, false -> 9]; // 1
+  switch(th) as [ti | ] : [Some -> 3, None -> 9]; // 2
+  s := Blocked  : [true -> 4]; // 3
+  ti := {ti with crt_state = s} : [true -> 5]; // 4
+  th := Some(ti) : [true -> 6]; // 5
+  ta := [ta with i = th] : [true -> 7, false -> 9]; // 6 
+  o := {p with threads = ta} : [true -> 8]; // 7
+  [true]; // 8
+  [invalid] // 9
+}
+\end{lstlisting}\\
+\bottomrule
+\end{longtable}
+
+Every statement in our \disp{stop_thread} example is followed by a construct of
+the form \disp{exit_label -> numerical_label}. This indicates the statement to be
+executed next, as identified by the \disp{numerical_label}, if the current 
+statement exits with label \disp{exit_label}. For example, when the first 
+statement, \disp{ta := p.threads}, exits with label \disp{true}, the predicate's 
+execution continues with the statement following it, having the numerical label 
+\disp{1}. %This will be further explained in the following section. 
+We remark that the predicate's exit labels are included in the body of an 
+explicit predicate, as can be seen at lines 8 and 9, respectively, in the case of 
+\disp{true} and \disp{inval}. Intuitively, the predicate's body resembles a 
+control flow graph and can be illustrated as shown in Figure~\ref{example:body}. 
+The predicate's exit labels are the control flow graph's exit nodes, as will be 
+discussed in Section~\ref{sec:lang:mysmil:cfg}.  
+
+%\phantom{bla}
+
+\begin{figure}[!h]\centering%{r}{19.0em}
+% Attention, ne pas copier-coller en deux exemplaires, car il faut que
+% les noms de nœuds soient uniques (l1l, l2l, l2r etc.).
+\vspace{-0.3cm}
+\hspace{0.5em}%
+%\begin{minipage}{18.5em}% Largeur de la figure
+\begin{minipage}{18.5em}% Largeur de la figure
+{%
+\def\p#1{\tikz[remember picture,baseline=-.5ex]\node[coordinate] (#1) {};}
+\noindent%
+\p{l1l}{\scriptsize 0:\ }\disp{ta := in.threads}\\[-.2ex]
+\p{l2l}{\scriptsize 1:\ }\disp{th := ta[i]}\p{l2r}\\[-.2ex]%
+\p{l3l}{\scriptsize 2:\ }\disp{switch(th) as [Some:ti | None]}\p{l3r}\\[-.2ex]%
+\p{l4l}{\scriptsize 3:\ }\disp{s \ := BLOCKED}\\[-.2ex]
+\p{l5l}{\scriptsize 4:\ }\disp{ti := \{ti with current\_state=s\}}\\[-.2ex]
+\p{l6l}{\scriptsize 5:\ }\disp{th := Some(ti)}\\[-.2ex]
+\p{l7l}{\scriptsize 6:\ }\disp{ta := [ta with i=th]}\p{l7r}\\[-.2ex]%
+\p{l8l}{\scriptsize 7:\ }\disp{o \ := \{in with threads=ta\}}\\[-.2ex]
+%
+%%% Version avec les points et une seule flèche à droite
+% \p{l9l}{\scriptsize 9:\ }\texttt{true}\hfill{\scriptsize 10:\ }\tikz[remember picture]\node[inner sep=0pt,line width=0pt] (l10) {\texttt{inv}};
+%%% Fin
+%
+%%% Version avec trois flèches à droite (texte à droite ou à gauche des flèches)
+\p{l9l}{\scriptsize 8:\ }\disp{true}\hfill{\scriptsize 9:\ }%
+\tikz[remember picture]\node[inner sep=0pt,line width=0pt] (l10i) {\disp{i}};%
+\tikz[remember picture]\node[inner sep=0pt,line width=0pt] (l10X) {\disp{n}};%
+\tikz[remember picture]\node[inner sep=0pt,line width=0pt] (l10n) {\disp{v}};%
+\tikz[remember picture]\node[inner sep=0pt,line width=0pt] (l10Y) {\disp{a}};%
+\tikz[remember picture]\node[inner sep=0pt,line width=0pt] (l10v) {\disp{l}};%
+%%% Fin
+%
+\begin{tikzpicture}[overlay,remember picture]
+  %%% Version avec les points et une seule flèche à droite
+  % \coordinate (l10t) at ([yshift=0.8ex]l10);
+  % \draw[->,>=stealth] ([xshift=0.5ex]l2r) -| node[right,font=\tt] {false} (l10t);
+  % \draw[fill=black] ([xshift=0.5ex]l3r) -- (l3r -| l10t) circle (0.2ex) node[right,font=\tt] {None};
+  % \draw[fill=black] ([xshift=0.5ex]l7r) -- (l7r -| l10t) circle (0.2ex) node[right,font=\tt] {false};
+  %%% Fin
+
+  %%% Curvy arrows:
+  %%% Version avec trois flèches à droite, et le texte à droite des flèches
+  \node[inner sep=0pt,line width=0pt,fit=(l10i) (l10n) (l10v)] (l10inv) {};
+  \coordinate[yshift=0.5ex] (l10ti) at (l10i |- l10inv.north);
+  \coordinate[yshift=0.5ex] (l10tn) at (l10n |- l10inv.north);
+  \coordinate[yshift=0.5ex] (l10tv) at (l10v |- l10inv.north);
+
+  \coordinate (l2r-corner) at (l2r -| l10tv);
+  \coordinate (l3r-corner) at (l3r -| l10tn);
+  \coordinate (l7r-corner) at (l7r -| l10ti);
+  
+  \def\arrowsradius{1.5ex}
+  \draw[->,>=stealth] ([xshift=0.5ex]l2r) -- ([xshift=-\arrowsradius]l2r-corner) .. controls +(right:\arrowsradius) .. ++(\arrowsradius,-\arrowsradius) -- (l10tv);
+  \draw[->,>=stealth] ([xshift=0.5ex]l3r) -- ([xshift=-\arrowsradius]l3r-corner) .. controls +(right:\arrowsradius) .. ++(\arrowsradius,-\arrowsradius) -- (l10tn);
+  \draw[->,>=stealth] ([xshift=0.5ex]l7r) -- ([xshift=-\arrowsradius]l7r-corner) .. controls +(right:\arrowsradius) .. ++(\arrowsradius,-\arrowsradius) -- (l10ti);
+
+  % \node[right,font=\tt] at (l2r-corner-|l10v) {false};
+  % \node[right,font=\tt] at (l3r-corner-|l10v) {None};
+  % \node[right,font=\tt] at (l7r-corner-|l10v) {false};
+
+  % Texte à gauche
+  \node[xshift=0.7ex,above left, inner xsep=0pt,font=\tt] at ([xshift=-\arrowsradius]l2r-corner) {\disp{false}};
+  \node[xshift=0,left,font=\tt] at (l3r-corner|-l4l) {\disp{None}};
+  \node[xshift=0.7ex,above left, inner xsep=0pt,font=\tt] at ([xshift=-\arrowsradius]l7r-corner) {\disp{false}};
+
+  %%% Fin
+
+  %%% Version avec trois flèches à droite, et le texte à gauche des flèches
+  % \node[inner sep=0pt,line width=0pt,fit=(l10i) (l10n) (l10v)] (l10inv) {};
+  % \coordinate[yshift=0.5ex] (l10ti) at (l10i |- l10inv.north);
+  % \coordinate[yshift=0.5ex] (l10tn) at (l10n |- l10inv.north);
+  % \coordinate[yshift=0.5ex] (l10tv) at (l10v |- l10inv.north);
+
+  % \draw[->,>=stealth] ([xshift=0.5ex]l2r) -| node[coordinate] (labelv) {} (l10tv); \node[below left,font=\tt] at (labelv) {false};
+  % \draw[->,>=stealth] ([xshift=0.5ex]l3r) -| node[coordinate] (labeln) {} (l10tn); \node[below left,font=\tt] at (labeln) {None};
+  % \draw[->,>=stealth] ([xshift=0.5ex]l7r) -| node[coordinate] (labeli) {} (l10ti); \node[below left,font=\tt] at (labeli) {false};
+  %%% Fin
+  
+  \foreach \i/\j/\k in {l1l/true/l2l,l2l/true/l3l,l3l/Some/l4l,l4l/true/l5l,l5l/true/l6l,l6l/true/l7l,l7l/true/l8l,l8l/true/l9l}{
+    % First style of curviness:
+    % \draw[->,>=stealth] ([xshift=-0.4ex,yshift=-0.27ex]\i) .. controls +(225:0.8ex) and +(135:1.1ex) .. ([xshift=-0.4ex,yshift=0.27ex]\k);
+    % First version B:
+    \draw[->,>=stealth] ([xshift=-0.4ex,yshift=-0.27ex]\i) .. controls +(205:0.7ex) and +(140:1.1ex) .. ([xshift=-0.2ex,yshift=0.4ex]\k);
+    % Second style of curviness:
+    % \draw[->,>=stealth] ([xshift=-0.4ex,yshift=-0.27ex]\i) .. controls +(left:1.5ex) and +(left:1.5ex) .. ([xshift=-0.4ex,yshift=0.27ex]\k);
+    % Third style of curviness:
+    % \draw ([xshift=-0.4ex,yshift=-0.27ex]\i) edge[->,>=stealth,bend right,looseness=1.2,out=-45,in=-135] ([xshift=-0.4ex,yshift=0.27ex]\k);
+    
+    % Labels, uncomment to add back the true true Some true etc.
+    % \node[xshift=-2ex,left,font=\tt] at ($(\i.base)!.5!(\k.base)$) {\j};
+  }
+\end{tikzpicture}
+}
+\end{minipage}
+\caption{Body of the \disp{stop_thread} Predicate}
+\label{example:body}
+\end{figure}
+    
+We are working with {\asmil}, which is a computational version of {\smil} where 
+all specification-only predicates have been removed. Simulating hypotheses, 
+lemmas and contracts is straightforward and can be achieved using predicates 
+having only the {\lbtrue} and {\lbfalse} labels and no associated output. 
+Inductives are the only exception to this rule: they are supported in {\asmil} 
+as well and their declaration is similar to the one in {\slang}. The {\asmil} 
+equivalent of the \disp{not_disjoint} inductive presented in our \emph{Abstract 
+Process Manager} example (on page~\pageref{ch3:inductive:pred}) has the 
+following form:
+
+\begin{longtable}{l}
+\toprule
+\begin{lstlisting}
+predicate not_disjoint(process p)
+-> [true | false] 
+inductive
+\end{lstlisting}\\
+\begin{lstlisting}
+case StacksJoint (int i, int j) : 
+ {{thread ti, thread tj, memory_region sti, 
+  memory_region stj}} {
+  i = j : [true -> 1, false -> 7];
+  thread(p, i)[true: ti | None] : [true -> 2, None -> 7]; 
+  thread(p, j)[true: tj | None] : [true -> 3, None -> 7];
+  sti := ti.stack : [true -> 4];
+  stj := tj.stack : [true -> 5];
+  overlap(sti, stj)[true|false] : [true -> 6, false -> 7];
+  [true];
+  [false];
+  [error]
+ }
+case CodeStackJoint (int k) : 
+ {{thread tk, memory_region stk, address_space asp, 
+   memory_region code}} {
+  thread(p, k)[true: tk | None] : [true -> 1, None -> 6];
+  stk := tk.stack : [true -> 2];
+  asp := p.adr_space : [true -> 3];
+  code := asp.code : [true -> 4];
+  overlap(stk, code)[true|false] : [true -> 5, false -> 6];
+  [true];
+  [false];
+  [error]
+ }
+case DataStackJoint (int l) : 
+ {{thread tl, memory_region stl, address_space aspace, 
+   memory_region data}} {
+  thread(p, l)[true: tl | None] : [true -> 1, None -> 6];	
+  stl := tl.stack : [true -> 2]; 
+  aspace := p.adr_space : [true -> 3];
+  data := aspace.data : [true -> 4];
+  overlap(stl, data)[true|false] : [true -> 5, false -> 6];
+  [true]; 
+  [false];
+  [error]
+}
+predicate disjoint_stacks(process p) -> [true | false]
+ {
+  not_disjoint(p)[true|false] : [true -> 1, false -> 2];
+  [true];
+  [false];
+  [error]
+ }
+\end{lstlisting}\\
+\bottomrule
+\end{longtable}
+
+This inductive predicate has been introduced and explained in
+Section~\ref{sec:lang:apmsm} of the previous chapter (on
+page~\pageref{ch3:inductiveexsmart}) and it characterizes the potential
+situations in which the memory isolation of the different associated threads of
+a process can be broken.
+
+\subsection{Control flow graphs}
+Predicate bodies in {\asmil} resemble a \emph{control flow graph}
+representation, having statements as nodes. The nodes represent program states, 
+and the edges are defined by statements with a particular exit label $\lambda$.
+
+The control flow graph
+%\defsymbol{$G_p = (N, \mathcal{E})$}{Control flow graph of predicate $p$}%
+$G_p = (N, \mathcal{E})$ of a predicate $p$ has a node $n_i \in N$ 
+for each program point. For each statement $s$ at program point $n_i$ that can 
+execute and reach program point $n_j$ with exit label $\lambda_k$, an edge 
+$(n_i, n_j)$ is added to $G_p$ and labeled with $s$ and $\lambda_k$. $G_p$ has 
+a single entry node $n_{in} \in N$ corresponding to the program point associated 
+to the first statement of $p$. The set of exit nodes $n_{out} \subset N$ consists 
+of the nodes associated to each possible exit label $\lambda_k$ of the predicate.
+To these, one additional exit node which is used as a sink node is added. This
+corresponds to the \textsf{error} label.
+
+In practice, all the outgoing edges of a node $n_i \in N$ bear the different cases
+of the same statement $s$ found at program point $n_i$. Thus, the edges are labeled
+with the same statement $s$ and there is an edge labeled $s, \lambda_k$ for each 
+possible exit label $\lambda_k$ of $s$. 
+
+The subfigures in Figure~\ref{pred:cfg} show the control flow graph of the following 
+predicate: 
+
+\begin{figure}[!h]\centering
+\begin{lstlisting}
+              predicate thread(process p, int i) 
+              -> [true: thread ti | None | oob]
+\end{lstlisting}
+\end{figure}
+
+\noindent which receives a process \disp{p} and an index \disp{i} as
+inputs and returns the \disp{i}-th active thread of the input
+process. If the \disp{i}-th thread is inactive, it exits with the exit
+label \disp{None}. In the case of an ``out of bounds'' exception, the
+exit label \disp{oob} is returned. For better readability,
+Figure~\ref{pred:cfg}-b gives the control flow of the same predicate
+where we have labeled the nodes with statements of the predicate and
+the edges with their exit labels. Throughout the rest of our {\asmil}
+predicate examples, we will favour the latter representation.
+%\hyperref[fig:the-figure]{4.2-b} 
+\begin{figure}[!h]\centering%
+\resizebox{\textwidth}{!}{%
+\begin{tabular}{@{}c@{}@{}c@{}}%
+\toprule
+\Huge a) \emph{G}$_{\textrm{\huge{\emph{thread}}}}$ & \Huge b) \emph{G}$_{\textrm{\huge{\emph{thread}}}}$ -- alternative representation  \\
+\midrule
+ { \centering
+  \begin{tikzpicture}[->,>=stealth',shorten >=1pt,auto,node distance=1.8cm, semithick,
+    statt/.style={fill=lightgray!50,draw=none,text=black,ellipse,inner sep=0pt,minimum width=1.2cm,minimum height=1.2cm}]
+%
+   \node[statt]         (N1)  {\huge {$n_1$}};
+   \node[statt]         (N2) [below=1cm of N1] {\huge {$n_2$}};
+   \node[statt]         (N3) [below left=of N2] {\huge{$n_3$}};
+   \node[statt]         (N4) [below right=of N2]{\huge\textsf{oob}};
+   \node[statt]         (N5) [below left=of N3]{\huge {\lbtrue}};
+   \node[statt]         (N6) [below right=of N3]{\Large\textsf{None}};  
+   \path (N1) edge              node [xshift = 0.3cm]{\huge {ts := p.threads, \lbtrue}} (N2);
+   \path (N2) edge              node [xshift = -4.9cm, yshift = 0.5cm] {\huge {tio := ts[i], \lbtrue}} (N3);
+   \path (N2) edge              node [xshift = 0.05cm] {\huge {tio := ts[i], \lbfalse}} (N4);
+   \path (N3) edge              node [left of=N3, xshift=-0.55cm,yshift=-0.1cm]{\huge {$\boldsymbol{switch}$ (tio) $\boldsymbol{as}$ 
+                                     [ti$\ver$], \textsf{Some}}} (N5);
+   \path (N3) edge              node[xshift=0.1cm, yshift=-0.5cm] {\huge {$\boldsymbol{switch}$ (tio) $\boldsymbol{as}$ [ti$\ver$], 
+                                    \textsf{None}}} (N6);
+\end{tikzpicture}
+ }
+%
+&
+{ \centering
+  \hspace{1.1cm}
+  \begin{tikzpicture}[->,>=stealth',shorten >=1pt,auto,node distance=1.8cm, semithick,
+    statt/.style={fill=lightgray!50,draw=none,text=black,ellipse,inner sep=0pt,minimum width=1.2cm,minimum height=1.2cm}]
+%
+   \node[statt]         (N1)  {\huge {ts := p.threads}};
+   \node[statt]         (N2) [below=1cm of N1] {\huge {tio := ts[i]}};
+   \node[statt]         (N3) [below left=of N2] {\huge {$\boldsymbol{switch}$(tio) $\boldsymbol{as}$ [ti$\ver$}]};
+   \node[statt]         (N4) [below right=of N2]{\huge\textsf{oob}};
+   \node[statt]         (N5) [below left=of N3]{\huge\lbtrue};
+   \node[statt]         (N6) [below right=of N3]{\huge\textsf{None}};  
+   \path (N1) edge              node[xshift=-1.45cm] {\huge {\lbtrue}} (N2);
+   \path (N2) edge              node[xshift=-1.75cm,yshift = 0.4cm] {\huge{\lbtrue}} (N3);
+   \path (N2) edge              node {\huge {\lbfalse}} (N4);
+   \path (N3) edge              node[left, anchor=south east] {\huge {\textsf{Some}}} (N5);
+   \path (N3) edge              node[right, anchor=south west] {\huge {\textsf{None}}} (N6);
+\end{tikzpicture}
+ }%
+\\%
+\bottomrule%
+\end{tabular}}%
+\caption{Example -- Control Flow Graph of Predicate {\disp{thread}}}%
+\label{pred:cfg}%
+\end{figure}%
+
 
 \section{Dependency analysis}
 
@@ -5246,7 +5916,73 @@ properties (respectively predicates) which could fall into these cases:
 
 \section{Related work}
 
-\section{Conclusions}
+\section{Summary and conclusions}
+
+Interactive formal verification of complex transition systems is
+confronted by the frame problem. Considerable effort is spent on
+proving the preservation of the system's invariants, even though in
+practice the majority of operations have a localised effect on the
+system and impact only a limited number of invariants at the same
+time. Identifying those invariants that are unaffected by an operation
+and automatically proving their preservation can substantially ease
+the proof burden for the programmer. We have presented
+a method for automatically inferring the preservation of
+framing-related invariants, meant to be used in the context of
+an interactive theorem prover. The method employs two different static
+analyses, namely a dependency analysis and a correlation analysis,
+whose unified results  establish the disjointness between
+the data dependencies of a logical property and the modifications
+performed by an operation.
+
+We target complex transition systems in general, and operating
+systems in particular. These are characterized by states defined
+by complex compound data structures and by transitions, i.e. state changes, 
+that map an input state to an output state. Both of our static analyses are
+concerned with deep-state manipulations, i.e. accesses and modifications, 
+respectively. Both analyses handle associative arrays and algebraic data
+types and compute fine-grained results mirroring the layered structures of
+such types. 
+%
+The dependency analysis presented in Section~\ref{sec:dependency}
+automatically detects the relevant input subset needed for producing
+certain outputs. It handles functions and their specifications in a
+unified manner and computes for each possible execution scenario a
+conservative approximation of the input (sub)elements on which their
+outcome depends. It is a flow-sensitive, path-sensitive
+interprocedural data-flow analysis. Furthermore, for variants, an
+additional analysis is simultaneously conducted for computing the
+subset of possible constructors on a given execution scenario. The
+extension to an inter-procedural analysis is based on computing
+deferred dependencies consisting of symbolic access maps in which
+callers can subsequently inject their specific context information.
+The dependency summaries for each predicate are still computed only once.
+
+The correlation analysis presented in Section~\ref{sec:correlation}
+detects the flow of input values into output values. It computes a
+conservative approximation of fine-grained equivalences between the
+input and the output subelements of a function. The correlation
+analysis is an interprocedural data-flow analysis that tracks the
+origin of subparts of the output and relates it to subparts of the
+inputs, thus summarising the behaviour of functions and detecting not
+only what is modified, but also how and to what extent. We have
+defined a partial equivalence type mirroring the layered structure of
+algebraic data types and associative arrays and we introduced an
+intermediate level consisting of access paths and correlations. These
+allow computing expressive information regarding equivalences between
+subparts of the inputs and subparts of the outputs in a flexible
+manner.
+
+Prototypes for both of our analyses have been implemented in
+\textsf{OCaml}.  We have applied them to a functional specification of
+\emph{\pcore}~\cite{lescuyer15}, a general-purpose microkernel that
+ensures isolation. Results for medium-sized models have been obtained
+on average in less than 1 second with the dependency analysis, and
+less than 0.5 seconds on average with the correlation analysis.
+The experiments confirm that the method can scale to such medium-sized
+developments and still provide useful information for eliminating
+proof obligations in an interactive verification. 
+
+
 
 \bibliographystyle{alpha}
 \bibliography{biblio}
